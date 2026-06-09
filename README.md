@@ -36,6 +36,24 @@ Open `http://localhost:8088`. Nginx serves the built SPA and proxies `/api-proxy
 API_TARGET=http://other-host:8080 docker compose up
 ```
 
+## TDK server deployment (current)
+
+The dashboard runs on the internal server `ussjc-scps01.invcorp.invensense.com` (10.0.65.19), which sits inside the network and reaches the NetApp API directly — viewers only need to be on the VPN/internal network.
+
+- **URL:** `http://10.0.65.19:8088` (or `http://ussjc-scps01.invcorp.invensense.com:8088`)
+- **Location on server:** `/opt/scorpius/destats`
+- **Compose plugin:** persisted at `/opt/scorpius/.docker/cli-plugins` (use `export DOCKER_CONFIG=/opt/scorpius/.docker`; the `/tmp/.docker` copy is wiped on reboot)
+- The container has `restart: unless-stopped`, so it comes back automatically after a server reboot.
+
+To update after pushing changes to GitHub:
+
+```sh
+ssh <user>@ussjc-scps01.invcorp.invensense.com
+export DOCKER_CONFIG=/opt/scorpius/.docker
+cd /opt/scorpius/destats
+git pull && docker compose up --build -d
+```
+
 ## Deployment recap
 
 - **Local laptop:** `npm run dev` or the container; works whenever your VPN is connected.
