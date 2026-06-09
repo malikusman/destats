@@ -1,0 +1,10 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8088:80"
+    environment:
+      # Upstream NetApp ingestion API. The container (i.e. the Docker host)
+      # must be able to route to this address — VPN / Tailscale / WireGuard.
+      - API_TARGET=${API_TARGET:-http://10.0.65.40:8080}
+    restart: unless-stopped
