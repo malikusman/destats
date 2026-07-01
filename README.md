@@ -4,6 +4,8 @@ A single-pane-of-glass web dashboard for the **uspdc-nac01** NetApp ONTAP cluste
 
 Built with Vite, React 18, TypeScript (strict), Tailwind CSS, TanStack Query, Recharts, and React Router. Read-only: no auth, no writes — every screen is fetch JSON, render, auto-refresh.
 
+**Full step-by-step deployment guide:** see [DEPLOYMENT.md](DEPLOYMENT.md) (VPN, SSH, Docker, TDK server, verification, troubleshooting).
+
 ## Running it
 
 The API lives on an internal network. The browser never talks to it directly — all requests go through a same-origin `/api-proxy` prefix that is reverse-proxied to the API (Vite in dev, Nginx in the container). This avoids CORS and mixed-content issues without any code changes between environments.
