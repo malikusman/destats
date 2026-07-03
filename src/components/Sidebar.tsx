@@ -1,11 +1,16 @@
 import { NavLink } from 'react-router-dom';
 import {
   Activity,
+  BrainCircuit,
+  BookOpen,
   Database,
   HardDrive,
   LayoutDashboard,
   Network,
+  Play,
   Server,
+  ShieldCheck,
+  Siren,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -13,16 +18,48 @@ interface NavItem {
   to: string;
   label: string;
   icon: LucideIcon;
+  end?: boolean;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { to: '/', label: 'Overview', icon: LayoutDashboard },
+const NETAPP_NAV: NavItem[] = [
+  { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
   { to: '/capacity', label: 'Capacity & Efficiency', icon: Database },
   { to: '/aggregates', label: 'Aggregates', icon: HardDrive },
   { to: '/nodes', label: 'Nodes', icon: Server },
   { to: '/interfaces', label: 'Network', icon: Network },
   { to: '/events', label: 'Events (EMS)', icon: Activity },
 ];
+
+const SCORPIUS_NAV: NavItem[] = [
+  { to: '/incidents', label: 'Incidents', icon: Siren },
+  { to: '/execution', label: 'Execution', icon: Play },
+  { to: '/knowledge', label: 'Knowledge', icon: BookOpen },
+  { to: '/system-status', label: 'System Status', icon: ShieldCheck },
+];
+
+function NavSection({ items }: { items: NavItem[] }) {
+  return (
+    <>
+      {items.map(({ to, label, icon: Icon, end }) => (
+        <NavLink
+          key={to}
+          to={to}
+          end={end}
+          className={({ isActive }) =>
+            `flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+              isActive
+                ? 'bg-blue-50 text-blue-700'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+            }`
+          }
+        >
+          <Icon className="h-4 w-4 shrink-0" aria-hidden />
+          {label}
+        </NavLink>
+      ))}
+    </>
+  );
+}
 
 export function Sidebar() {
   return (
@@ -36,29 +73,28 @@ export function Sidebar() {
           <div className="font-mono text-[11px] text-slate-400">uspdc-nac01</div>
         </div>
       </div>
-      <nav aria-label="Main navigation" className="flex flex-row gap-1 md:flex-col">
-        {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            className={({ isActive }) =>
-              `flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                isActive
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
-              }`
-            }
-          >
-            <Icon className="h-4 w-4 shrink-0" aria-hidden />
-            {label}
-          </NavLink>
-        ))}
+
+      {/* NetApp section */}
+      <nav aria-label="NetApp navigation" className="flex flex-row gap-1 md:flex-col">
+        <div className="hidden px-2 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 md:block">
+          NetApp Storage
+        </div>
+        <NavSection items={NETAPP_NAV} />
       </nav>
+
+      {/* Scorpius Platform section */}
+      <nav aria-label="Scorpius navigation" className="flex flex-row gap-1 md:mt-4 md:flex-col">
+        <div className="hidden items-center gap-1.5 px-2 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 md:flex">
+          <BrainCircuit className="h-3 w-3" />
+          Scorpius Platform
+        </div>
+        <NavSection items={SCORPIUS_NAV} />
+      </nav>
+
       <div className="mt-auto hidden px-2 pt-4 text-[11px] text-slate-400 md:block">
         Hillsboro, OR DC
         <br />
-        scorpius-netapp-ingestion-api
+        Scorpius v2.1.4 — Mock
       </div>
     </aside>
   );
