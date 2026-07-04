@@ -49,12 +49,14 @@ function EvidenceCard({ item }: { item: EvidenceItem }) {
     <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
       <div className="mt-0.5 shrink-0">{EVIDENCE_ICON[item.type]}</div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] uppercase text-slate-500">
-            {item.type}
-          </span>
-          <span className="text-xs text-slate-400">{item.source}</span>
-          <span className="ml-auto text-xs font-medium text-slate-600">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <span className="shrink-0 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] uppercase text-slate-500">
+              {item.type}
+            </span>
+            <span className="text-xs text-slate-400">{item.source}</span>
+          </div>
+          <span className="shrink-0 text-xs font-medium text-slate-600">
             {Math.round(item.relevance_score * 100)}% relevant
           </span>
         </div>
@@ -69,7 +71,7 @@ function EvidenceCard({ item }: { item: EvidenceItem }) {
   );
 }
 
-function KnowledgeRefCard({ ref: kref }: { ref: KnowledgeReference }) {
+function KnowledgeRefCard({ knowledgeRef: kref }: { knowledgeRef: KnowledgeReference }) {
   const TYPE_COLOR: Record<KnowledgeReference['type'], string> = {
     runbook: 'bg-blue-100 text-blue-700',
     incident_history: 'bg-violet-100 text-violet-700',
@@ -109,9 +111,7 @@ function ActionCard({ action, rank }: { action: RecommendedAction; rank: number 
           {rank}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-semibold text-slate-800">{action.action}</p>
-          </div>
+          <p className="text-sm font-semibold text-slate-800">{action.action}</p>
           <p className="mt-1 text-xs text-slate-500">{action.rationale}</p>
           <div className="mt-2 flex flex-wrap gap-3 text-xs">
             <span className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ring-1 ring-inset capitalize ${RISK_BG[action.estimated_risk]}`}>
@@ -159,13 +159,16 @@ export function AiReasoning() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Summary header */}
-      <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:flex-row sm:items-start sm:gap-8">
-        <ConfidenceGauge score={reasoning.confidence_score} />
-        <div className="flex-1">
+    <div className="min-w-0 space-y-6">
+      {/* Summary header — stacked on all widths so text never squeezes beside the gauge */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+          <div className="shrink-0 self-center sm:self-start">
+            <ConfidenceGauge score={reasoning.confidence_score} />
+          </div>
+          <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <BrainCircuit className="h-4 w-4 text-violet-500" />
+            <BrainCircuit className="h-4 w-4 shrink-0 text-violet-500" />
             <span className="text-sm font-semibold text-slate-700">AI Analysis Summary</span>
             <span
               className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset capitalize ${RISK_BG[reasoning.risk_level]}`}
@@ -173,23 +176,24 @@ export function AiReasoning() {
               {reasoning.risk_level} risk
             </span>
           </div>
-          <p className="mt-2 text-sm text-slate-700 leading-relaxed">{reasoning.incident_summary}</p>
+          <p className="mt-2 text-sm leading-relaxed text-slate-700">{reasoning.incident_summary}</p>
           <div className="mt-3 rounded-lg bg-violet-50 p-3">
-            <p className="text-xs font-semibold text-violet-700 mb-1">Root Cause Hypothesis</p>
+            <p className="mb-1 text-xs font-semibold text-violet-700">Root Cause Hypothesis</p>
             <p className="text-sm text-violet-900">{reasoning.root_cause_hypothesis}</p>
           </div>
           <p className="mt-2 text-[11px] text-slate-400">
             {reasoning.model_version} · Generated {formatTimestamp(reasoning.generated_at)}
           </p>
+          </div>
         </div>
       </div>
 
       {/* Evidence */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
-          <Lightbulb className="h-4 w-4 text-yellow-500" />
+        <div className="mb-3 flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-700">
+          <Lightbulb className="h-4 w-4 shrink-0 text-yellow-500" />
           Supporting Evidence
-          <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-xs font-normal text-slate-500">
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-normal text-slate-500 sm:ml-auto">
             {reasoning.evidence.length} items
           </span>
         </div>
@@ -202,16 +206,16 @@ export function AiReasoning() {
 
       {/* Knowledge refs */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
-          <BookOpen className="h-4 w-4 text-blue-500" />
+        <div className="mb-3 flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-700">
+          <BookOpen className="h-4 w-4 shrink-0 text-blue-500" />
           Knowledge References
-          <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-xs font-normal text-slate-500">
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-normal text-slate-500 sm:ml-auto">
             {reasoning.knowledge_references.length} docs
           </span>
         </div>
         <div className="space-y-2">
           {reasoning.knowledge_references.map((ref) => (
-            <KnowledgeRefCard key={ref.id} ref={ref} />
+            <KnowledgeRefCard key={ref.id} knowledgeRef={ref} />
           ))}
         </div>
       </div>
@@ -245,7 +249,7 @@ export function AiReasoning() {
         </button>
         {showTrace && (
           <div className="border-t border-slate-100 p-4">
-            <pre className="whitespace-pre-wrap font-mono text-xs text-slate-600 leading-relaxed">
+            <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-slate-600">
               {reasoning.reasoning_trace}
             </pre>
           </div>
