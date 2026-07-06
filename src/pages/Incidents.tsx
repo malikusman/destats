@@ -9,12 +9,18 @@ import {
   RefreshCw,
   Zap,
 } from 'lucide-react';
-import { useIncidents } from '../hooks/scorpius';
+import { useIncidentList, useIncidentStats } from '../hooks/incident-service';
 import { formatRelative } from '../lib/format';
-import type { Incident, Severity } from '../types/scorpius';
+import {
+  SEVERITY_BG,
+  severityTone,
+  statusBadgeClass,
+  type SeverityTone,
+} from '../lib/incident-display';
+import type { IncidentListItem } from '../types/incident-service';
 
-function severityIcon(s: Severity) {
-  switch (s) {
+function severityIcon(tone: SeverityTone) {
+  switch (tone) {
     case 'critical':
       return <AlertCircle className="h-4 w-4 text-red-600" aria-hidden />;
     case 'high':
@@ -26,39 +32,26 @@ function severityIcon(s: Severity) {
   }
 }
 
-const SEVERITY_BG: Record<Severity, string> = {
-  critical: 'bg-red-100 text-red-700 ring-red-200',
-  high: 'bg-orange-100 text-orange-700 ring-orange-200',
-  medium: 'bg-yellow-100 text-yellow-700 ring-yellow-200',
-  low: 'bg-blue-50 text-blue-600 ring-blue-100',
-  info: 'bg-slate-100 text-slate-600 ring-slate-200',
-};
+function IncidentRow({ incident }: { incident: IncidentListItem }) {
+  const tone = severityTone(incident.severity);
 
-const STATUS_BADGE: Record<string, string> = {
-  active: 'bg-red-50 text-red-600 ring-red-100',
-  investigating: 'bg-yellow-50 text-yellow-700 ring-yellow-100',
-  resolved: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
-  suppressed: 'bg-slate-100 text-slate-500 ring-slate-200',
-};
-
-function IncidentRow({ incident }: { incident: Incident }) {
   return (
     <Link
-      to={`/incidents/${incident.id}`}
+      to={`/incidents/${incident.incident_id}`}
       className="group flex items-start gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
     >
-      <div className="mt-0.5">{severityIcon(incident.severity)}</div>
+      <div className="mt-0.5">{severityIcon(tone)}</div>
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-xs text-slate-400">{incident.id}</span>
+          <span className="font-mono text-xs text-slate-400">{incident.incident_id.slice(0, 8)}…</span>
           <span
-            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset capitalize ${SEVERITY_BG[incident.severity]}`}
+            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${SEVERITY_BG[tone]}`}
           >
             {incident.severity}
           </span>
           <span
-            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset capitalize ${STATUS_BADGE[incident.status] ?? ''}`}
+            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${statusBadgeClass(incident.status)}`}
           >
             {incident.status}
           </span>
@@ -70,68 +63,52 @@ function IncidentRow({ incident }: { incident: Incident }) {
         <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-400">
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
-            {formatRelative(incident.created_at)}
+            {formatRelative(incident.first_seen)}
           </span>
           <span className="text-slate-300">·</span>
-          <span>{incident.source}</span>
+          <span>{incident.entity}</span>
           <span className="text-slate-300">·</span>
-          <span>{incident.assets.length} asset{incident.assets.length !== 1 ? 's' : ''}</span>
+          <span>{incident.alert_count} alert{incident.alert_count !== 1 ? 's' : ''}</span>
         </div>
-        {incident.tags.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {incident.tags.map((t) => (
-              <span
-                key={t}
-                className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-500"
-              >
-                {t}
-              </span>
-            ))}
-          </div>
-        )}
       </div>
 
       <div className="mt-1 flex shrink-0 flex-col items-end gap-2">
         <span className="flex items-center gap-1 text-xs text-slate-400">
           <BrainCircuit className="h-3.5 w-3.5" /> AI analysis
         </span>
-        <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-blue-500 transition-colors" />
+        <ChevronRight className="h-4 w-4 text-slate-300 transition-colors group-hover:text-blue-500" />
       </div>
     </Link>
   );
 }
 
 export function Incidents() {
-  const { data, isLoading, isError, refetch, isFetching } = useIncidents();
+  const { data: incidents, isLoading, isError, refetch, isFetching } = useIncidentList();
+  const { data: stats } = useIncidentStats();
 
-  const incidents = data?.incidents ?? [];
-  const activeCount = data?.active_count ?? 0;
-
-  const criticalCount = incidents.filter((i) => i.severity === 'critical').length;
-  const highCount = incidents.filter((i) => i.severity === 'high').length;
-  const resolvedCount = incidents.filter((i) => i.status === 'resolved').length;
+  const list = incidents ?? [];
+  const activeCount = (stats?.new ?? 0) + (stats?.investigating ?? 0);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-slate-900">Incidents</h1>
           <p className="mt-0.5 text-sm text-slate-500">
-            AI-detected incidents across the Scorpius platform
+            Live data from Scorpius Incident Service API
           </p>
         </div>
         <button
+          type="button"
           onClick={() => refetch()}
           disabled={isFetching}
-          className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+          className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
           Refresh
         </button>
       </div>
 
-      {/* KPI strip */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="text-xs text-slate-500">Active</div>
@@ -139,19 +116,18 @@ export function Incidents() {
         </div>
         <div className="rounded-xl border border-red-100 bg-red-50 p-4 shadow-sm">
           <div className="text-xs text-red-600">Critical</div>
-          <div className="mt-1 text-2xl font-bold text-red-700">{criticalCount}</div>
+          <div className="mt-1 text-2xl font-bold text-red-700">{stats?.critical ?? '—'}</div>
         </div>
         <div className="rounded-xl border border-orange-100 bg-orange-50 p-4 shadow-sm">
           <div className="text-xs text-orange-600">High</div>
-          <div className="mt-1 text-2xl font-bold text-orange-700">{highCount}</div>
+          <div className="mt-1 text-2xl font-bold text-orange-700">{stats?.high ?? '—'}</div>
         </div>
         <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4 shadow-sm">
           <div className="text-xs text-emerald-600">Resolved</div>
-          <div className="mt-1 text-2xl font-bold text-emerald-700">{resolvedCount}</div>
+          <div className="mt-1 text-2xl font-bold text-emerald-700">{stats?.resolved ?? '—'}</div>
         </div>
       </div>
 
-      {/* List */}
       {isLoading && (
         <div className="space-y-3">
           {[1, 2, 3].map((n) => (
@@ -162,19 +138,19 @@ export function Incidents() {
 
       {isError && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          Failed to load incidents.
+          Failed to load incidents. Is the mock API running? Try <code className="font-mono">npm run mock-api</code>.
         </div>
       )}
 
       {!isLoading && !isError && (
         <div className="space-y-3">
-          {incidents.length === 0 ? (
+          {list.length === 0 ? (
             <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-400">
-              No incidents found.
+              No active incidents.
             </div>
           ) : (
-            incidents.map((incident) => (
-              <IncidentRow key={incident.id} incident={incident} />
+            list.map((incident) => (
+              <IncidentRow key={incident.incident_id} incident={incident} />
             ))
           )}
         </div>

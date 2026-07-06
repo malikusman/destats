@@ -13,4 +13,5 @@ COPY --from=build /app/dist /usr/share/nginx/html
 # container start, producing /etc/nginx/conf.d/default.conf with ${API_TARGET}.
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 ENV API_TARGET=http://10.0.65.40:8080
+ENV INCIDENT_API_TARGET=http://mock-api:3090
 EXPOSE 80

@@ -12,6 +12,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api-proxy/, ''),
       },
+      '/incident-api': {
+        target: 'http://localhost:3090',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/incident-api/, ''),
+      },
     },
   },
 })

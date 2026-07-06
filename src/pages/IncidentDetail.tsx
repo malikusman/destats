@@ -7,21 +7,13 @@ import {
   LayoutList,
   Play,
 } from 'lucide-react';
-import { useIncident } from '../hooks/scorpius';
+import { useIncidentDetail } from '../hooks/incident-service';
 import { formatRelative } from '../lib/format';
-import type { Severity } from '../types/scorpius';
-
-const SEVERITY_BG: Record<Severity, string> = {
-  critical: 'bg-red-100 text-red-700 ring-red-200',
-  high: 'bg-orange-100 text-orange-700 ring-orange-200',
-  medium: 'bg-yellow-100 text-yellow-700 ring-yellow-200',
-  low: 'bg-blue-50 text-blue-600 ring-blue-100',
-  info: 'bg-slate-100 text-slate-600 ring-slate-200',
-};
+import { SEVERITY_BG, severityTone, statusBadgeClass } from '../lib/incident-display';
 
 export function IncidentDetail() {
   const { id } = useParams<{ id: string }>();
-  const { data: incident, isLoading, isError } = useIncident(id);
+  const { data: incident, isLoading, isError } = useIncidentDetail(id);
 
   if (isLoading) {
     return (
@@ -33,12 +25,35 @@ export function IncidentDetail() {
   }
 
   if (isError || !incident) {
+    const isLegacyId = id?.startsWith('INC-');
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-        {isError ? 'Failed to load incident.' : `Incident ${id} not found.`}
+      <div className="space-y-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <p className="font-medium">
+          {isError ? 'Failed to load incident.' : `Incident ${id} not found.`}
+        </p>
+        {isLegacyId && (
+          <p className="text-red-600">
+            IDs like <span className="font-mono">INC-004</span> are from the old demo data.
+            The live API uses UUIDs — go back to the{' '}
+            <Link to="/incidents" className="underline">
+              incidents list
+            </Link>{' '}
+            and pick a current incident.
+          </p>
+        )}
+        {!isLegacyId && !isError && (
+          <p className="text-red-600">
+            This incident may not exist in the API.{' '}
+            <Link to="/incidents" className="underline">
+              Return to incidents list
+            </Link>
+          </p>
+        )}
       </div>
     );
   }
+
+  const tone = severityTone(incident.severity);
 
   const subRoutes = [
     { to: 'overview', label: 'Overview', icon: LayoutList, end: true },
@@ -49,7 +64,6 @@ export function IncidentDetail() {
 
   return (
     <div className="space-y-6">
-      {/* Back + title */}
       <div>
         <Link
           to="/incidents"
@@ -60,15 +74,22 @@ export function IncidentDetail() {
         <div className="flex flex-wrap items-start gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-sm text-slate-400">{incident.id}</span>
+              <span className="font-mono text-sm text-slate-400">{incident.incident_id}</span>
               <span
-                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset capitalize ${SEVERITY_BG[incident.severity]}`}
+                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${SEVERITY_BG[tone]}`}
               >
                 {incident.severity}
               </span>
-              <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium capitalize text-slate-600 ring-1 ring-inset ring-slate-200">
+              <span
+                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${statusBadgeClass(incident.status)}`}
+              >
                 {incident.status}
               </span>
+              {incident.priority && (
+                <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200">
+                  {incident.priority} priority
+                </span>
+              )}
             </div>
             <h1 className="mt-1 text-xl font-bold text-slate-900">{incident.title}</h1>
           </div>
@@ -76,13 +97,13 @@ export function IncidentDetail() {
         <p className="mt-2 text-sm text-slate-500">{incident.description}</p>
         <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-400">
           <span className="flex items-center gap-1">
-            <Clock className="h-3 w-3" /> Created {formatRelative(incident.created_at)}
+            <Clock className="h-3 w-3" /> First seen {formatRelative(incident.first_seen)}
           </span>
           <span>{incident.source}</span>
+          {incident.owner && <span>Owner: {incident.owner}</span>}
         </div>
       </div>
 
-      {/* Workflow tabs — each tab owns its full content; assets/timeline live on Overview only */}
       <div className="min-w-0">
         <div className="grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm sm:flex sm:flex-wrap">
           {subRoutes.map(({ to, label, icon: Icon, end }) => (
