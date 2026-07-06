@@ -11,7 +11,9 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { useState } from 'react';
+import { DemoWorkflowPlaceholder } from '../components/DemoWorkflowPlaceholder';
 import { useAiReasoning } from '../hooks/scorpius';
+import { isDemoIncidentId } from '../lib/incident-adapters';
 import { formatTimestamp } from '../lib/format';
 import type { EvidenceItem, KnowledgeReference, RecommendedAction, RiskLevel } from '../types/scorpius';
 
@@ -137,8 +139,13 @@ function ActionCard({ action, rank }: { action: RecommendedAction; rank: number 
 
 export function AiReasoning() {
   const { id } = useParams<{ id: string }>();
-  const { data: reasoning, isLoading, isError } = useAiReasoning(id);
+  const isDemo = isDemoIncidentId(id);
+  const { data: reasoning, isLoading, isError } = useAiReasoning(isDemo ? id : undefined);
   const [showTrace, setShowTrace] = useState(false);
+
+  if (!isDemo) {
+    return <DemoWorkflowPlaceholder />;
+  }
 
   if (isLoading) {
     return (

@@ -10,7 +10,9 @@ import {
   Star,
   XCircle,
 } from 'lucide-react';
+import { DemoWorkflowPlaceholder } from '../components/DemoWorkflowPlaceholder';
 import { usePlan } from '../hooks/scorpius';
+import { isDemoIncidentId } from '../lib/incident-adapters';
 import { formatTimestamp } from '../lib/format';
 import type { CandidatePlan, PolicyCheck, PolicyDecision } from '../types/scorpius';
 
@@ -121,7 +123,12 @@ function PolicyRow({ check }: { check: PolicyCheck }) {
 
 export function Planning() {
   const { id } = useParams<{ id: string }>();
-  const { data: plan, isLoading, isError } = usePlan(id);
+  const isDemo = isDemoIncidentId(id);
+  const { data: plan, isLoading, isError } = usePlan(isDemo ? id : undefined);
+
+  if (!isDemo) {
+    return <DemoWorkflowPlaceholder />;
+  }
 
   if (isLoading) {
     return (

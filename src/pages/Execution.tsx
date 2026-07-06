@@ -9,7 +9,9 @@ import {
   RotateCcw,
   SkipForward,
 } from 'lucide-react';
+import { DemoWorkflowPlaceholder } from '../components/DemoWorkflowPlaceholder';
 import { useExecutionHistory, useExecutionStatus } from '../hooks/scorpius';
+import { isDemoIncidentId } from '../lib/incident-adapters';
 import { formatRelative, formatTimestamp } from '../lib/format';
 import type { ActionStatus, ExecutionAction } from '../types/scorpius';
 
@@ -126,7 +128,12 @@ function ExecutionProgress({ actions }: { actions: ExecutionAction[] }) {
 /** When accessed from /incidents/:id/execution — show single execution run */
 export function Execution() {
   const { id } = useParams<{ id: string }>();
-  const { data: run, isLoading, isError } = useExecutionStatus(id);
+  const isDemo = isDemoIncidentId(id);
+  const { data: run, isLoading, isError } = useExecutionStatus(isDemo ? id : undefined);
+
+  if (!isDemo) {
+    return <DemoWorkflowPlaceholder />;
+  }
 
   if (isLoading) {
     return (

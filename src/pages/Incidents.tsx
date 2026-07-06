@@ -9,7 +9,7 @@ import {
   RefreshCw,
   Zap,
 } from 'lucide-react';
-import { useIncidentList, useIncidentStats } from '../hooks/incident-service';
+import { useUnifiedIncidents } from '../hooks/unified-incidents';
 import { formatRelative } from '../lib/format';
 import {
   SEVERITY_BG,
@@ -17,7 +17,7 @@ import {
   statusBadgeClass,
   type SeverityTone,
 } from '../lib/incident-display';
-import type { IncidentListItem } from '../types/incident-service';
+import type { UnifiedIncidentListItem } from '../types/unified-incident';
 
 function severityIcon(tone: SeverityTone) {
   switch (tone) {
@@ -32,26 +32,39 @@ function severityIcon(tone: SeverityTone) {
   }
 }
 
-function IncidentRow({ incident }: { incident: IncidentListItem }) {
+const SOURCE_BADGE: Record<UnifiedIncidentListItem['source'], string> = {
+  demo: 'bg-slate-100 text-slate-600 ring-slate-200',
+  api: 'bg-blue-50 text-blue-700 ring-blue-100',
+};
+
+function IncidentRow({ incident }: { incident: UnifiedIncidentListItem }) {
   const tone = severityTone(incident.severity);
+  const isDemo = incident.source === 'demo';
 
   return (
     <Link
-      to={`/incidents/${incident.incident_id}`}
+      to={`/incidents/${incident.id}`}
       className="group flex items-start gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
     >
       <div className="mt-0.5">{severityIcon(tone)}</div>
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-xs text-slate-400">{incident.incident_id.slice(0, 8)}…</span>
+          <span className="font-mono text-xs text-slate-400">
+            {isDemo ? incident.id : `${incident.id.slice(0, 8)}…`}
+          </span>
           <span
-            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${SEVERITY_BG[tone]}`}
+            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${SOURCE_BADGE[incident.source]}`}
+          >
+            {isDemo ? 'Demo' : 'Live'}
+          </span>
+          <span
+            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset capitalize ${SEVERITY_BG[tone]}`}
           >
             {incident.severity}
           </span>
           <span
-            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${statusBadgeClass(incident.status)}`}
+            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset capitalize ${statusBadgeClass(incident.status)}`}
           >
             {incident.status}
           </span>
@@ -63,19 +76,33 @@ function IncidentRow({ incident }: { incident: IncidentListItem }) {
         <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-400">
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
-            {formatRelative(incident.first_seen)}
+            {formatRelative(incident.sortTime)}
           </span>
           <span className="text-slate-300">·</span>
-          <span>{incident.entity}</span>
+          <span>{incident.contextLabel}</span>
           <span className="text-slate-300">·</span>
-          <span>{incident.alert_count} alert{incident.alert_count !== 1 ? 's' : ''}</span>
+          <span>{incident.countLabel}</span>
         </div>
+        {incident.tags && incident.tags.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {incident.tags.map((t) => (
+              <span
+                key={t}
+                className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-500"
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="mt-1 flex shrink-0 flex-col items-end gap-2">
-        <span className="flex items-center gap-1 text-xs text-slate-400">
-          <BrainCircuit className="h-3.5 w-3.5" /> AI analysis
-        </span>
+        {isDemo && (
+          <span className="flex items-center gap-1 text-xs text-slate-400">
+            <BrainCircuit className="h-3.5 w-3.5" /> AI workflow
+          </span>
+        )}
         <ChevronRight className="h-4 w-4 text-slate-300 transition-colors group-hover:text-blue-500" />
       </div>
     </Link>
@@ -83,11 +110,11 @@ function IncidentRow({ incident }: { incident: IncidentListItem }) {
 }
 
 export function Incidents() {
-  const { data: incidents, isLoading, isError, refetch, isFetching } = useIncidentList();
-  const { data: stats } = useIncidentStats();
+  const { data, isLoading, isError, refetch, isFetching } = useUnifiedIncidents();
 
-  const list = incidents ?? [];
-  const activeCount = (stats?.new ?? 0) + (stats?.investigating ?? 0);
+  const list = data?.incidents ?? [];
+  const stats = data?.stats;
+  const apiAvailable = data?.apiAvailable ?? true;
 
   return (
     <div className="space-y-6">
@@ -95,7 +122,7 @@ export function Incidents() {
         <div>
           <h1 className="text-xl font-bold text-slate-900">Incidents</h1>
           <p className="mt-0.5 text-sm text-slate-500">
-            Live data from Scorpius Incident Service API
+            Demo workflow incidents and live Incident Service data
           </p>
         </div>
         <button
@@ -109,10 +136,18 @@ export function Incidents() {
         </button>
       </div>
 
+      {!apiAvailable && !isLoading && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          Live incidents unavailable — showing demo data only. Is the mock API running? Try{' '}
+          <code className="font-mono">npm run mock-api</code> or{' '}
+          <code className="font-mono">docker compose up</code>.
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="text-xs text-slate-500">Active</div>
-          <div className="mt-1 text-2xl font-bold text-slate-900">{activeCount}</div>
+          <div className="mt-1 text-2xl font-bold text-slate-900">{stats?.active ?? '—'}</div>
         </div>
         <div className="rounded-xl border border-red-100 bg-red-50 p-4 shadow-sm">
           <div className="text-xs text-red-600">Critical</div>
@@ -138,7 +173,7 @@ export function Incidents() {
 
       {isError && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          Failed to load incidents. Is the mock API running? Try <code className="font-mono">npm run mock-api</code>.
+          Failed to load incidents.
         </div>
       )}
 
@@ -146,12 +181,10 @@ export function Incidents() {
         <div className="space-y-3">
           {list.length === 0 ? (
             <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-400">
-              No active incidents.
+              No incidents found.
             </div>
           ) : (
-            list.map((incident) => (
-              <IncidentRow key={incident.incident_id} incident={incident} />
-            ))
+            list.map((incident) => <IncidentRow key={`${incident.source}-${incident.id}`} incident={incident} />)
           )}
         </div>
       )}
