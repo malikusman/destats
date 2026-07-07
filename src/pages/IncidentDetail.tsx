@@ -89,9 +89,6 @@ export function IncidentDetail() {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-mono text-sm text-slate-400">{demoIncident.id}</span>
-                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200">
-                    Demo
-                  </span>
                   <span
                     className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset capitalize ${DEMO_SEVERITY_BG[demoIncident.severity]}`}
                   >
@@ -174,7 +171,7 @@ export function IncidentDetail() {
                 <span
                   key={to}
                   className={tabClass(false)}
-                  title="Workflow tabs use demo data — open an INC-* incident"
+                  title="Workflow tabs are available for INC-* incidents only"
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0" />
                   <span className="min-w-0 truncate">{label}</span>

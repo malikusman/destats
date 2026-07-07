@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import {
   Activity,
+  Bot,
   BrainCircuit,
   BookOpen,
   Database,
@@ -36,6 +37,8 @@ const SCORPIUS_NAV: NavItem[] = [
   { to: '/knowledge', label: 'Knowledge', icon: BookOpen },
   { to: '/system-status', label: 'System Status', icon: ShieldCheck },
 ];
+
+const SCORPIUS_NAV_DISABLED = [{ label: 'Create Agent', icon: Bot }] as const;
 
 function NavSection({ items }: { items: NavItem[] }) {
   return (
@@ -89,12 +92,23 @@ export function Sidebar() {
           Scorpius Platform
         </div>
         <NavSection items={SCORPIUS_NAV} />
+        {SCORPIUS_NAV_DISABLED.map(({ label, icon: Icon }) => (
+          <span
+            key={label}
+            className="flex cursor-not-allowed items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-slate-300"
+            title="Coming soon"
+            aria-disabled="true"
+          >
+            <Icon className="h-4 w-4 shrink-0" aria-hidden />
+            {label}
+          </span>
+        ))}
       </nav>
 
       <div className="mt-auto hidden px-2 pt-4 text-[11px] text-slate-400 md:block">
         Hillsboro, OR DC
         <br />
-        Scorpius v2.1.4 — Mock
+        Scorpius v2.1.4
       </div>
     </aside>
   );

@@ -32,14 +32,13 @@ function severityIcon(tone: SeverityTone) {
   }
 }
 
-const SOURCE_BADGE: Record<UnifiedIncidentListItem['source'], string> = {
-  demo: 'bg-slate-100 text-slate-600 ring-slate-200',
+const SOURCE_BADGE: Record<'api', string> = {
   api: 'bg-blue-50 text-blue-700 ring-blue-100',
 };
 
 function IncidentRow({ incident }: { incident: UnifiedIncidentListItem }) {
   const tone = severityTone(incident.severity);
-  const isDemo = incident.source === 'demo';
+  const isWorkflow = incident.source === 'demo';
 
   return (
     <Link
@@ -51,13 +50,15 @@ function IncidentRow({ incident }: { incident: UnifiedIncidentListItem }) {
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-mono text-xs text-slate-400">
-            {isDemo ? incident.id : `${incident.id.slice(0, 8)}…`}
+            {isWorkflow ? incident.id : `${incident.id.slice(0, 8)}…`}
           </span>
-          <span
-            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${SOURCE_BADGE[incident.source]}`}
-          >
-            {isDemo ? 'Demo' : 'Live'}
-          </span>
+          {incident.source === 'api' && (
+            <span
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${SOURCE_BADGE.api}`}
+            >
+              Live
+            </span>
+          )}
           <span
             className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset capitalize ${SEVERITY_BG[tone]}`}
           >
@@ -98,7 +99,7 @@ function IncidentRow({ incident }: { incident: UnifiedIncidentListItem }) {
       </div>
 
       <div className="mt-1 flex shrink-0 flex-col items-end gap-2">
-        {isDemo && (
+        {isWorkflow && (
           <span className="flex items-center gap-1 text-xs text-slate-400">
             <BrainCircuit className="h-3.5 w-3.5" /> AI workflow
           </span>
@@ -122,7 +123,7 @@ export function Incidents() {
         <div>
           <h1 className="text-xl font-bold text-slate-900">Incidents</h1>
           <p className="mt-0.5 text-sm text-slate-500">
-            Demo workflow incidents and live Incident Service data
+            Workflow incidents and live Incident Service data
           </p>
         </div>
         <button
@@ -138,7 +139,7 @@ export function Incidents() {
 
       {!apiAvailable && !isLoading && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          Live incidents unavailable — showing demo data only. Is the mock API running? Try{' '}
+          Live incidents unavailable — showing workflow incidents only. Is the mock API running? Try{' '}
           <code className="font-mono">npm run mock-api</code> or{' '}
           <code className="font-mono">docker compose up</code>.
         </div>
