@@ -20,11 +20,12 @@ If you only want a quick summary, see [README.md](README.md). Use **this file** 
 10. [Phase 6 — Verify the deployment](#10-phase-6--verify-the-deployment)
 11. [Phase 7 — Open the dashboard in a browser](#11-phase-7--open-the-dashboard-in-a-browser)
 12. [Updating after code changes](#12-updating-after-code-changes)
-13. [Changing the API target URL](#13-changing-the-api-target-url)
-14. [Troubleshooting](#14-troubleshooting)
-15. [Local development (optional)](#15-local-development-optional)
-16. [Server reference](#16-server-reference)
-17. [Files involved in deployment](#17-files-involved-in-deployment)
+13. [Hybrid incidents branch (`feature/hybrid-incidents`)](#13-hybrid-incidents-branch-featurehybrid-incidents)
+14. [Changing the API target URL](#14-changing-the-api-target-url)
+15. [Troubleshooting](#15-troubleshooting)
+16. [Local development (optional)](#16-local-development-optional)
+17. [Server reference](#17-server-reference)
+18. [Files involved in deployment](#18-files-involved-in-deployment)
 
 ---
 
@@ -39,7 +40,12 @@ You are deploying a **read-only web dashboard** that shows NetApp ONTAP cluster 
 
 The dashboard **does not talk to NetApp directly**. It only calls the ingestion API.
 
-**Important:** The dashboard and the ingestion API are **two different services**. If the portal loads but shows no data, the dashboard may be fine while the ingestion API is down (see [Troubleshooting](#14-troubleshooting)).
+| Branch | What it deploys |
+|---|---|
+| **`main`** | NetApp storage dashboard only (Overview, Capacity, Nodes, etc.) |
+| **`feature/hybrid-incidents`** | NetApp dashboard **plus** Scorpius Incidents UI — demo workflow (`INC-*`) and live Incident Service data (`/incident-api`) |
+
+**Important:** The dashboard and the ingestion API are **two different services**. If the portal loads but shows no data, the dashboard may be fine while the ingestion API is down (see [Troubleshooting](#15-troubleshooting)).
 
 ---
 
@@ -55,20 +61,26 @@ Your browser (on VPN)
 │  Docker container: destats-web        │
 │                                       │
 │  Nginx inside container:              │
-│    /           → React static files   │
-│    /api-proxy/ → reverse proxy        │
-└───────────────────┬───────────────────┘
-                    │
-                    │  http://10.0.65.40:8080
-                    ▼
-        scorpius-netapp-ingestion-api
-                    │
-                    ▼
-              NetApp ONTAP cluster
-              (uspdc-nac01)
+│    /              → React static files│
+│    /api-proxy/    → ingestion API     │
+│    /incident-api/ → incident service  │  ← hybrid branch only
+└───────────┬─────────────┬─────────────┘
+            │             │
+            │             │  http://mock-api:3090 (internal)
+            │             ▼
+            │     destats-mock-api container   ← hybrid branch only
+            │
+            │  http://10.0.65.40:8080
+            ▼
+  scorpius-netapp-ingestion-api
+            │
+            ▼
+      NetApp ONTAP cluster (uspdc-nac01)
 ```
 
 **Why `/api-proxy`?** Browsers block cross-origin API calls (CORS). The app always requests `/api-proxy/...` on the **same host** as the dashboard. Nginx (in Docker) forwards those requests to the real API. No code changes are needed between your laptop, the TDK server, or Docker.
+
+**Why `/incident-api`?** (hybrid branch) Same pattern for the Scorpius Incident Service. Nginx proxies `/incident-api/` to the `mock-api` container locally, or to a real Incident Service backend when `INCIDENT_API_TARGET` is changed.
 
 ---
 
@@ -174,7 +186,7 @@ curl -s --max-time 10 http://10.0.65.40:8080/health
 {"ok":true,"service":"scorpius-netapp-ingestion-api","time":"..."}
 ```
 
-**Bad:** `Connection refused` or timeout → the ingestion API is down or moved. **Stop here** and ask whoever runs `scorpius-netapp-ingestion-api` to restart it or give you the new URL (see [Section 13](#13-changing-the-api-target-url)).
+**Bad:** `Connection refused` or timeout → the ingestion API is down or moved. **Stop here** and ask whoever runs `scorpius-netapp-ingestion-api` to restart it or give you the new URL (see [Section 14](#14-changing-the-api-target-url)).
 
 ### 6.3 Port 8088 is free
 
@@ -256,33 +268,72 @@ Both files should exist.
 
 ---
 
-## 9. Phase 5 — Build and start the container
+## 9. Phase 5 — Build and start the containers
 
 ```bash
 export DOCKER_CONFIG=/opt/scorpius/.docker
 cd /opt/scorpius/destats
+```
+
+### 9.1 Install Node dependencies for mock-api (hybrid branch only)
+
+On branches that include the Incident Service mock API (`feature/hybrid-incidents`, `testing-apis`), the `mock-api` container mounts the repo and runs `node mock-api/server.mjs`. It needs **`express`** and **`cors`**, which are listed under `devDependencies` in `package.json`.
+
+The Node Docker image sets `NODE_ENV=production`, so a plain `npm ci` **skips** those packages and `mock-api` crash-loops with:
+
+```
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'express'
+```
+
+**Run this before `docker compose up` on the server:**
+
+```bash
+docker run --rm -v "$(pwd):/app" -w /app node:20-alpine npm ci --include=dev
+```
+
+Verify (optional):
+
+```bash
+docker run --rm -v "$(pwd):/app" -w /app node:20-alpine ls node_modules/express/package.json
+```
+
+> **Note:** You do **not** need this step on `main` (no `mock-api` container). The `web` container runs its own `npm ci` inside the Docker build.
+
+### 9.2 Build and start
+
+```bash
 docker compose up --build -d
 ```
 
 What this does:
 
-1. **Build stage** — Uses Node 20 to run `npm ci` and `npm run build`, producing static files in `dist/`.
-2. **Run stage** — Copies `dist/` into an Nginx image and starts it.
-3. **`-d`** — Runs in the background.
+1. **`mock-api`** (hybrid branch) — Node 20 Alpine runs the Incident Service mock REST API on port 3090 (internal only).
+2. **`web` build stage** — Uses Node 20 to run `npm ci` and `npm run build`, producing static files in `dist/`.
+3. **`web` run stage** — Copies `dist/` into an Nginx image and starts it on host port **8088**.
+4. **`-d`** — Runs in the background.
 
 First build takes **1–3 minutes**. Later rebuilds are faster.
 
-Check the container is running:
+Check the containers are running:
 
 ```bash
 docker ps --filter name=destats
 ```
 
-**Good:**
+**Good (main branch):**
 
 ```
 destats-web-1   Up ...   0.0.0.0:8088->80/tcp
 ```
+
+**Good (hybrid branch):**
+
+```
+destats-web-1        Up ...   0.0.0.0:8088->80/tcp
+destats-mock-api-1   Up ...
+```
+
+**Bad:** Either container shows `Restarting` — see [Troubleshooting](#15-troubleshooting).
 
 ---
 
@@ -322,7 +373,16 @@ curl -s http://localhost:8088/api-proxy/api/netapp/summary | head -c 200
 
 **Good:** JSON with `"ok": true` and a `"sources"` object.
 
-If 10.1 fails with **502 Bad Gateway**, the ingestion API is unreachable from the container — see [Troubleshooting](#14-troubleshooting).
+### 10.5 Incident Service proxy (hybrid branch only)
+
+```bash
+curl -s http://localhost:8088/incident-api/health
+curl -s http://localhost:8088/incident-api/incidents | head -c 200
+```
+
+**Good:** `{"status":"healthy"}` and a JSON array of incidents.
+
+If 10.1 fails with **502 Bad Gateway**, the ingestion API is unreachable from the container — see [Troubleshooting](#15-troubleshooting).
 
 ---
 
@@ -341,6 +401,14 @@ On your laptop (with **VPN connected**), open:
 - KPI tiles with real numbers (e.g. Nodes **4/4**, Volumes **762**)
 - Charts and tables filling in after a few seconds
 
+**Hybrid branch (`feature/hybrid-incidents`) — also check:**
+
+| URL | Expected |
+|---|---|
+| `http://10.0.65.19:8088/incidents` | ~9 incidents with **Demo** and **Live** badges |
+| Click `INC-001` | Full AI Reasoning / Planning / Execution tabs |
+| Click a UUID incident | Live overview with timeline and recommendations |
+
 **What indicates a problem:**
 
 - Page loads but everything shows **0**, **—**, or **"Data unavailable"** → ingestion API issue, not the dashboard container.
@@ -357,6 +425,10 @@ When new code is pushed to GitHub:
 export DOCKER_CONFIG=/opt/scorpius/.docker
 cd /opt/scorpius/destats
 git pull
+
+# Hybrid branch only — reinstall mock-api deps if package.json changed
+docker run --rm -v "$(pwd):/app" -w /app node:20-alpine npm ci --include=dev
+
 docker compose up --build -d
 ```
 
@@ -372,7 +444,58 @@ Then run the server commands above.
 
 ---
 
-## 13. Changing the API target URL
+## 13. Hybrid incidents branch (`feature/hybrid-incidents`)
+
+This branch deploys the **combined incidents view**: Epic 12 demo incidents (`INC-*`) plus live Incident Service API data (`/incident-api`).
+
+### Checkout and deploy
+
+```bash
+export DOCKER_CONFIG=/opt/scorpius/.docker
+cd /opt/scorpius/destats
+
+git fetch origin
+git checkout feature/hybrid-incidents
+git pull origin feature/hybrid-incidents
+
+# Required — mock-api needs express/cors from devDependencies
+docker run --rm -v "$(pwd):/app" -w /app node:20-alpine npm ci --include=dev
+
+docker compose down
+docker compose up --build -d
+```
+
+### Verify
+
+```bash
+docker ps --filter name=destats
+curl -s http://localhost:8088/incident-api/health
+curl -s -o /dev/null -w "web: %{http_code}\n" http://localhost:8088/
+```
+
+Open **http://10.0.65.19:8088/incidents** (VPN connected).
+
+### Rollback to NetApp-only dashboard
+
+```bash
+cd /opt/scorpius/destats
+git checkout main
+docker compose up --build -d
+```
+
+### Pointing at a real Incident Service (optional)
+
+By default, `/incident-api` proxies to the bundled `mock-api` container. To use a real backend, set in `/opt/scorpius/destats/.env`:
+
+```bash
+INCIDENT_API_TARGET=http://REAL_INCIDENT_HOST:PORT
+```
+
+Then `docker compose up -d`. Demo `INC-*` incidents remain client-side regardless.
+
+---
+
+## 14. Changing the API target URL
 
 If the ingestion API moves to a different host or port, you do **not** need to change application code. Update the environment variable and restart:
 
@@ -404,7 +527,40 @@ curl -s http://localhost:8088/api-proxy/health
 
 ---
 
-## 14. Troubleshooting
+## 15. Troubleshooting
+
+### Browser shows "connection refused" on `10.0.65.19:8088`
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `ERR_CONNECTION_REFUSED` | Containers crash-looping | `docker ps -a --filter name=destats` — if `Restarting`, see below |
+| Same error, containers Up | VPN disconnected on laptop | Reconnect GlobalProtect (`uspdc-vpn.invensense.com`) |
+
+### Containers stuck in `Restarting`
+
+```bash
+docker ps -a --filter name=destats
+docker logs destats-mock-api-1 --tail 20
+docker logs destats-web-1 --tail 20
+```
+
+| Log message | Fix |
+|---|---|
+| `Cannot find package 'express'` | Run `docker run --rm -v "$(pwd):/app" -w /app node:20-alpine npm ci --include=dev`, then `docker compose up -d` |
+| `web` keeps restarting | Check `docker logs destats-web-1` — often caused by `mock-api` being down |
+
+**Full recovery (hybrid branch):**
+
+```bash
+cd /opt/scorpius/destats
+export DOCKER_CONFIG=/opt/scorpius/.docker
+docker run --rm -v "$(pwd):/app" -w /app node:20-alpine npm ci --include=dev
+docker compose down
+docker compose up -d
+sleep 3
+docker ps --filter name=destats
+curl -s http://localhost:8088/incident-api/health
+```
 
 ### Portal loads but no data ("Data unavailable" / all zeros)
 
@@ -481,7 +637,7 @@ Other services on this box (e.g. Scorpius RAG Django/React dev servers) are **no
 
 ---
 
-## 15. Local development (optional)
+## 16. Local development (optional)
 
 For development on your **laptop** (not required for TDK production deploy):
 
@@ -513,7 +669,7 @@ Open `http://localhost:8088`.
 
 ---
 
-## 16. Server reference
+## 17. Server reference
 
 | Item | Value |
 |---|---|
@@ -522,10 +678,13 @@ Open `http://localhost:8088`.
 | **SSH user** | `cmiller_sn` (or your assigned account) |
 | **Deploy path** | `/opt/scorpius/destats` |
 | **Dashboard URL** | `http://10.0.65.19:8088` |
-| **Container name** | `destats-web-1` |
+| **Incidents (hybrid)** | `http://10.0.65.19:8088/incidents` |
+| **Containers** | `destats-web-1`, `destats-mock-api-1` (hybrid branch) |
 | **Host port → container** | `8088 → 80` |
 | **Ingestion API** | `http://10.0.65.40:8080` |
+| **Incident API (internal)** | `http://mock-api:3090` (via `/incident-api` proxy) |
 | **GitHub repo** | `https://github.com/malikusman/destats` |
+| **Hybrid branch** | `feature/hybrid-incidents` |
 | **Docker config (persistent)** | `/opt/scorpius/.docker` |
 
 ### Server quirks (TDK / ussjc-scps01)
@@ -539,37 +698,44 @@ Open `http://localhost:8088`.
 
 ---
 
-## 17. Files involved in deployment
+## 18. Files involved in deployment
 
 | File | Purpose |
 |---|---|
 | [Dockerfile](Dockerfile) | Multi-stage build: Node builds app → Nginx serves it |
-| [docker-compose.yml](docker-compose.yml) | Defines `web` service, port 8088, `API_TARGET` env |
-| [nginx.conf.template](nginx.conf.template) | Nginx: SPA routing + `/api-proxy/` reverse proxy |
+| [docker-compose.yml](docker-compose.yml) | Defines `web` + `mock-api` services, port 8088, `API_TARGET` / `INCIDENT_API_TARGET` |
+| [nginx.conf.template](nginx.conf.template) | Nginx: SPA routing + `/api-proxy/` and `/incident-api/` reverse proxies |
+| [mock-api/server.mjs](mock-api/server.mjs) | Incident Service mock REST API (hybrid branch) |
 | [.dockerignore](.dockerignore) | Keeps `node_modules` and `.git` out of the image |
-| [.env.example](.env.example) | Documents `VITE_API_BASE_URL` for local dev |
-| [vite.config.ts](vite.config.ts) | Dev-only proxy to the ingestion API |
+| [.env.example](.env.example) | Documents `VITE_API_BASE_URL` and `VITE_INCIDENT_API_BASE_URL` |
+| [vite.config.ts](vite.config.ts) | Dev-only proxy to the ingestion API and mock-api |
 
 ---
 
 ## Quick command cheat sheet
 
-**First-time deploy (on server):**
+**First-time deploy (on server, hybrid branch):**
 
 ```bash
 export DOCKER_CONFIG=/opt/scorpius/.docker
 curl -s http://10.0.65.40:8080/health          # must succeed first
 git clone https://github.com/malikusman/destats.git /opt/scorpius/destats
 cd /opt/scorpius/destats
+git checkout feature/hybrid-incidents
+docker run --rm -v "$(pwd):/app" -w /app node:20-alpine npm ci --include=dev
 docker compose up --build -d
-curl -s http://localhost:8088/api-proxy/health  # verify
+curl -s http://localhost:8088/api-proxy/health   # verify NetApp
+curl -s http://localhost:8088/incident-api/health # verify incidents
 ```
 
-**Update deploy:**
+**Update deploy (hybrid branch):**
 
 ```bash
 export DOCKER_CONFIG=/opt/scorpius/.docker
-cd /opt/scorpius/destats && git pull && docker compose up --build -d
+cd /opt/scorpius/destats
+git pull
+docker run --rm -v "$(pwd):/app" -w /app node:20-alpine npm ci --include=dev
+docker compose up --build -d
 ```
 
 **Stop dashboard:**
@@ -601,4 +767,4 @@ cd /opt/scorpius/destats && docker compose down
 
 ---
 
-*Last updated: June 2026 — reflects deployment to `ussjc-scps01` at `/opt/scorpius/destats`.*
+*Last updated: July 2026 — reflects hybrid incidents deployment to `ussjc-scps01` at `/opt/scorpius/destats` (`feature/hybrid-incidents`).*

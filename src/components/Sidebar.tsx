@@ -4,9 +4,13 @@ import {
   Bot,
   BrainCircuit,
   BookOpen,
+  ClipboardCheck,
+  Code2,
   Database,
+  GraduationCap,
   HardDrive,
   LayoutDashboard,
+  Lightbulb,
   Network,
   Play,
   Server,
@@ -35,7 +39,11 @@ const SCORPIUS_NAV: NavItem[] = [
   { to: '/incidents', label: 'Incidents', icon: Siren },
   { to: '/execution', label: 'Execution', icon: Play },
   { to: '/knowledge', label: 'Knowledge', icon: BookOpen },
+  { to: '/usecases', label: 'Use Cases', icon: Lightbulb },
+  { to: '/learning', label: 'Learning', icon: GraduationCap },
+  { to: '/evaluation', label: 'Evaluation', icon: ClipboardCheck },
   { to: '/system-status', label: 'System Status', icon: ShieldCheck },
+  { to: '/api-docs', label: 'API Docs', icon: Code2 },
 ];
 
 const SCORPIUS_NAV_DISABLED = [{ label: 'Create Agent', icon: Bot }] as const;

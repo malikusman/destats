@@ -13,7 +13,11 @@ import { AiReasoning } from './pages/AiReasoning';
 import { Planning } from './pages/Planning';
 import { Execution, ExecutionDashboard } from './pages/Execution';
 import { Knowledge } from './pages/Knowledge';
+import { UseCases } from './pages/UseCases';
+import { Learning } from './pages/Learning';
+import { Evaluation } from './pages/Evaluation';
 import { SystemStatus } from './pages/SystemStatus';
+import { ApiDocs } from './pages/ApiDocs';
 
 export const router = createBrowserRouter([
   {
@@ -40,7 +44,11 @@ export const router = createBrowserRouter([
       },
       { path: 'execution', element: <ExecutionDashboard /> },
       { path: 'knowledge', element: <Knowledge /> },
+      { path: 'usecases', element: <UseCases /> },
+      { path: 'learning', element: <Learning /> },
+      { path: 'evaluation', element: <Evaluation /> },
       { path: 'system-status', element: <SystemStatus /> },
+      { path: 'api-docs', element: <ApiDocs /> },
     ],
   },
 ]);

@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
-import { CheckCircle2, Clock, Link2, Server } from 'lucide-react';
+import { Clock, Link2, Server } from 'lucide-react';
+import { IncidentPlatformPanels } from '../components/IncidentPlatformPanels';
 import {
   useIncidentDetail,
   useIncidentRecommendations,
@@ -120,31 +121,14 @@ export function IncidentOverviewApi() {
         )}
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
-          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-          Recommendations
-        </div>
-        {recs.length === 0 ? (
-          <p className="text-sm text-slate-400">No recommendations yet.</p>
-        ) : (
-          <div className="space-y-2">
-            {recs.map((rec) => (
-              <div
-                key={rec.recommendation_id}
-                className="rounded-lg border border-slate-200 bg-white p-3"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-slate-800">{rec.title}</p>
-                  <span className="text-xs font-medium text-slate-500">
-                    {Math.round(rec.confidence * 100)}% confidence · {rec.risk} risk
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {id && (
+        <IncidentPlatformPanels
+          incidentId={id}
+          title={incident.title}
+          description={incident.description}
+          recommendations={recs}
+        />
+      )}
     </div>
   );
 }

@@ -1,10 +1,8 @@
 /**
  * Knowledge API module.
  *
- * Currently returns mock data.
- * To swap in a real API:
- *   return apiGet<KnowledgeResponse>('/api/scorpius/knowledge');
- *   return apiGet<KnowledgeSearchResponse>(`/api/scorpius/knowledge/search?q=${query}`);
+ * Default: live Epic 5 API via `/incident-api`.
+ * Offline/demo fallback: set VITE_USE_MOCK_KNOWLEDGE=1
  */
 import type { KnowledgeDocument, KnowledgeResponse, KnowledgeSearchResponse } from '../../types/scorpius';
 import {
@@ -12,20 +10,37 @@ import {
   getMockKnowledgeForIncident,
   searchMockKnowledge,
 } from '../../mocks/knowledge';
+import {
+  fetchKnowledgeAsDocuments,
+  searchKnowledgeAsDocuments,
+} from '../incident-service/knowledge';
+
+const USE_MOCK = import.meta.env.VITE_USE_MOCK_KNOWLEDGE === '1';
 
 export async function fetchKnowledge(): Promise<KnowledgeResponse> {
-  await delay(260);
-  return getMockKnowledgeResponse();
+  if (USE_MOCK) {
+    await delay(260);
+    return getMockKnowledgeResponse();
+  }
+  return fetchKnowledgeAsDocuments();
 }
 
 export async function fetchKnowledgeForIncident(incidentId: string): Promise<KnowledgeDocument[]> {
-  await delay(200);
-  return getMockKnowledgeForIncident(incidentId);
+  if (USE_MOCK) {
+    await delay(200);
+    return getMockKnowledgeForIncident(incidentId);
+  }
+  // Live API has no incident-scoped list; return empty — retrieve is used on incident pages.
+  void incidentId;
+  return [];
 }
 
 export async function searchKnowledge(query: string): Promise<KnowledgeSearchResponse> {
-  await delay(400);
-  return searchMockKnowledge(query);
+  if (USE_MOCK) {
+    await delay(400);
+    return searchMockKnowledge(query);
+  }
+  return searchKnowledgeAsDocuments(query);
 }
 
 function delay(ms: number) {

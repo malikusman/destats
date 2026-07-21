@@ -11,7 +11,11 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { useState } from 'react';
-import { DemoWorkflowPlaceholder } from '../components/DemoWorkflowPlaceholder';
+import { IncidentPlatformPanels } from '../components/IncidentPlatformPanels';
+import {
+  useIncidentDetail,
+  useIncidentRecommendations,
+} from '../hooks/incident-service';
 import { useAiReasoning } from '../hooks/scorpius';
 import { isDemoIncidentId } from '../lib/incident-adapters';
 import { formatTimestamp } from '../lib/format';
@@ -137,14 +141,52 @@ function ActionCard({ action, rank }: { action: RecommendedAction; rank: number 
   );
 }
 
+function LiveAiReasoning({ id }: { id: string }) {
+  const detail = useIncidentDetail(id);
+  const recommendations = useIncidentRecommendations(id);
+
+  if (detail.isLoading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map((n) => (
+          <div key={n} className="h-24 animate-pulse rounded-xl bg-slate-100" />
+        ))}
+      </div>
+    );
+  }
+
+  if (detail.isError || !detail.data) {
+    return (
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-400">
+        Unable to load incident for live reasoning panels.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3 text-sm text-violet-900">
+        Live UUID incident — knowledge retrieve, learning-adjusted recommendations, feedback, and
+        evaluation use Epic 4/5/10/11 APIs via <span className="font-mono">/incident-api</span>.
+      </div>
+      <IncidentPlatformPanels
+        incidentId={id}
+        title={detail.data.title}
+        description={detail.data.description}
+        recommendations={recommendations.data ?? []}
+      />
+    </div>
+  );
+}
+
 export function AiReasoning() {
   const { id } = useParams<{ id: string }>();
   const isDemo = isDemoIncidentId(id);
   const { data: reasoning, isLoading, isError } = useAiReasoning(isDemo ? id : undefined);
   const [showTrace, setShowTrace] = useState(false);
 
-  if (!isDemo) {
-    return <DemoWorkflowPlaceholder />;
+  if (!isDemo && id) {
+    return <LiveAiReasoning id={id} />;
   }
 
   if (isLoading) {
