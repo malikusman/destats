@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local env overrides (API targets, secrets)
+.env
+.env.local

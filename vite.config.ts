@@ -13,7 +13,8 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api-proxy/, ''),
       },
       '/incident-api': {
-        target: 'http://localhost:3090',
+        // Live platform gateway on TDK (VPN). Local mock-api: http://localhost:3090
+        target: process.env.INCIDENT_API_TARGET || 'http://10.0.65.19:8088/incident-api',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/incident-api/, ''),
       },

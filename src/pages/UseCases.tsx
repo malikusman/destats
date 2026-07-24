@@ -112,7 +112,7 @@ export function UseCases() {
         <div>
           <h1 className="text-xl font-bold text-slate-900">Use Cases</h1>
           <p className="mt-0.5 text-sm text-slate-500">
-            Epic 4 repository — draft, submit, and approve operational use cases
+            Draft, submit, and approve operational use cases
           </p>
         </div>
         <button

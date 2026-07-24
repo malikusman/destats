@@ -21,7 +21,10 @@ function asEvaluationList(data: unknown): EvaluationRecord[] {
 
 export async function fetchEvaluations(): Promise<EvaluationRecord[]> {
   const data = await incidentGet<unknown>('/evaluation');
-  return asEvaluationList(data);
+  const fromList = asEvaluationList(data);
+  if (fromList.length > 0) return fromList;
+  // Live gateway returns summary-only on GET /evaluation; history has the rows.
+  return fetchEvaluationHistory();
 }
 
 export async function fetchEvaluationHistory(): Promise<EvaluationRecord[]> {

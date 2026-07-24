@@ -166,8 +166,8 @@ function LiveAiReasoning({ id }: { id: string }) {
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3 text-sm text-violet-900">
-        Live UUID incident — knowledge retrieve, learning-adjusted recommendations, feedback, and
-        evaluation use Epic 4/5/10/11 APIs via <span className="font-mono">/incident-api</span>.
+        Live incident — knowledge retrieve, learning-adjusted recommendations, feedback, and
+        evaluation use platform APIs via <span className="font-mono">/incident-api</span>.
       </div>
       <IncidentPlatformPanels
         incidentId={id}

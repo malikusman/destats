@@ -133,7 +133,7 @@ export function Knowledge() {
       <div>
         <h1 className="text-xl font-bold text-slate-900">Knowledge Repository</h1>
         <p className="mt-0.5 text-sm text-slate-500">
-          Live Epic 5 repository via /incident-api (set VITE_USE_MOCK_KNOWLEDGE=1 for offline mocks)
+          Runbooks and historical resolutions used by Scorpius
         </p>
       </div>
 

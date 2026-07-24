@@ -258,7 +258,7 @@ const PLATFORM_ENDPOINTS: ApiEndpoint[] = [
     id: 'uc-list',
     method: 'GET',
     path: '/usecases',
-    summary: 'List use cases (Epic 4).',
+    summary: 'List use cases.',
     statusCodes: '200',
     uiIntegrated: true,
     uiNote: 'Use Cases page via useUseCases',
@@ -296,7 +296,7 @@ const PLATFORM_ENDPOINTS: ApiEndpoint[] = [
     id: 'kn-list',
     method: 'GET',
     path: '/knowledge',
-    summary: 'List knowledge items (Epic 5).',
+    summary: 'List knowledge items.',
     statusCodes: '200',
     uiIntegrated: true,
     uiNote: 'Knowledge page (default live; VITE_USE_MOCK_KNOWLEDGE=1 for mocks)',
@@ -333,7 +333,7 @@ const PLATFORM_ENDPOINTS: ApiEndpoint[] = [
     id: 'lr-list',
     method: 'GET',
     path: '/learning',
-    summary: 'List learning records (Epic 10).',
+    summary: 'List learning records.',
     statusCodes: '200',
     uiIntegrated: true,
     uiNote: 'Learning page',
@@ -391,7 +391,7 @@ const PLATFORM_ENDPOINTS: ApiEndpoint[] = [
     id: 'ev-run',
     method: 'POST',
     path: '/evaluation/run',
-    summary: 'Run an evaluation against a learning id (Epic 11).',
+    summary: 'Run an evaluation against a learning id.',
     statusCodes: '200',
     uiIntegrated: true,
     uiNote: 'Evaluation page + incident overview Run evaluation',
@@ -538,7 +538,7 @@ export function ApiDocs() {
         <p className="mt-1 text-sm text-slate-500">
           Working REST endpoints proxied at{' '}
           <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">/incident-api</code>
-          — Epic 2/3 incidents plus Epic 4/5/10/11 use cases, knowledge, learning, and evaluation.
+          — incidents, use cases, knowledge, learning, and evaluation.
         </p>
       </div>
 
@@ -572,21 +572,17 @@ export function ApiDocs() {
             <span className="text-slate-400">Browser / app:</span> {BASE}
           </p>
           <p>
-            <span className="text-slate-400">TDK server:</span> http://10.0.65.19:8088/incident-api
-          </p>
-          <p>
-            <span className="text-slate-400">Local mock-api:</span> http://localhost:3090
+            <span className="text-slate-400">TDK gateway:</span> http://10.0.65.19:8088/incident-api
           </p>
         </div>
         <p className="mt-3 text-xs text-slate-500">
-          Auth: none. Knowledge offline fallback:{' '}
-          <code className="font-mono">VITE_USE_MOCK_KNOWLEDGE=1</code>. Full smoke report:{' '}
-          <code className="font-mono">docs/EPIC_4_5_10_11_API_TEST_REPORT.md</code>
+          Auth: none. Full field analysis and UI map:{' '}
+          <code className="font-mono">docs/PLATFORM_API_UI_MAP.md</code>
         </p>
       </div>
 
       <div className="space-y-2">
-        <h2 className="text-sm font-semibold text-slate-700">Epic 2 / 3 — Incidents</h2>
+        <h2 className="text-sm font-semibold text-slate-700">Incidents</h2>
         {ENDPOINTS.map((ep) => (
           <EndpointCard key={ep.id} ep={ep} />
         ))}
@@ -594,7 +590,7 @@ export function ApiDocs() {
 
       <div className="space-y-2">
         <h2 className="text-sm font-semibold text-slate-700">
-          Epic 4 / 5 / 10 / 11 — Use Cases, Knowledge, Learning, Evaluation
+          Use Cases, Knowledge, Learning, Evaluation
         </h2>
         {PLATFORM_ENDPOINTS.map((ep) => (
           <EndpointCard key={ep.id} ep={ep} />
@@ -606,13 +602,13 @@ export function ApiDocs() {
         <ul className="mt-2 list-disc space-y-1 pl-4">
           <li>
             Demo incidents with <code className="font-mono">INC-*</code> IDs keep mock reasoning /
-            planning / execution; live UUIDs use platform panels.
+            planning / execution; live UUID incidents use platform panels.
           </li>
           <li>
             Learning feedback requires <code className="font-mono">{'"success": true|false'}</code>.
           </li>
           <li>
-            Smoke tests: <code className="font-mono">bash scripts/test-epic-apis.sh</code> and{' '}
+            Regression smoke: <code className="font-mono">bash scripts/test-epic-apis.sh</code> and{' '}
             <code className="font-mono">bash scripts/test-epic-writes.sh</code>.
           </li>
         </ul>

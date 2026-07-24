@@ -102,7 +102,7 @@ export function Learning() {
       <div>
         <h1 className="text-xl font-bold text-slate-900">Learning</h1>
         <p className="mt-0.5 text-sm text-slate-500">
-          Epic 10 — outcome history, rankings, and feedback that adjust recommendation confidence
+          Outcome history, rankings, and feedback that adjust recommendation confidence
         </p>
       </div>
 

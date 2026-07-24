@@ -30,7 +30,18 @@ export async function fetchLearningList(): Promise<LearningRecord[]> {
 }
 
 export function fetchLearningStats(): Promise<LearningStats> {
-  return incidentGet<LearningStats>('/learning/stats');
+  return incidentGet<LearningStats>('/learning/stats').then((data) => {
+    if (data && typeof data === 'object' && Array.isArray((data as { stats?: unknown }).stats)) {
+      const rows = (data as { stats: Array<Record<string, unknown>> }).stats;
+      return {
+        recommendations_tracked: rows.length,
+        total_attempts: rows.reduce((n, r) => n + Number(r.total_attempts ?? 0), 0),
+        total_successes: rows.reduce((n, r) => n + Number(r.success_count ?? 0), 0),
+        total_failures: rows.reduce((n, r) => n + Number(r.failure_count ?? 0), 0),
+      };
+    }
+    return data;
+  });
 }
 
 export function fetchLearningRankings(): Promise<unknown> {

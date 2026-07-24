@@ -117,7 +117,7 @@ export function Evaluation() {
         <div>
           <h1 className="text-xl font-bold text-slate-900">Evaluation</h1>
           <p className="mt-0.5 text-sm text-slate-500">
-            Epic 11 — outcome scores and metric breakdowns for learning runs
+            Outcome scores and metric breakdowns for learning runs
           </p>
         </div>
         <button

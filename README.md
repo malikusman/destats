@@ -6,11 +6,13 @@ Built with Vite, React 18, TypeScript (strict), Tailwind CSS, TanStack Query, Re
 
 **Full step-by-step deployment guide:** see [DEPLOYMENT.md](DEPLOYMENT.md) (VPN, SSH, Docker, TDK server, verification, troubleshooting).
 
-**Incident Service API reference:** see [docs/INCIDENT_API.md](docs/INCIDENT_API.md) (curl examples, response schemas, UI integration map for `/incident-api` endpoints).
+**Incident Service API reference:** see [docs/INCIDENT_API.md](docs/INCIDENT_API.md).
 
-**Epic 4/5/10/11 API test report:** see [docs/EPIC_4_5_10_11_API_TEST_REPORT.md](docs/EPIC_4_5_10_11_API_TEST_REPORT.md). Smoke: `npm run test:epic-apis` or `bash scripts/test-epic-writes.sh`.
+**Platform API → UI map (responses + where they show):** see [docs/PLATFORM_API_UI_MAP.md](docs/PLATFORM_API_UI_MAP.md).
 
-**Platform UI (this branch):** Use Cases `/usecases`, Knowledge (live), Learning `/learning`, Evaluation `/evaluation` all call `/incident-api`. Offline knowledge mocks: `VITE_USE_MOCK_KNOWLEDGE=1`.
+**API smoke report:** see [docs/EPIC_4_5_10_11_API_TEST_REPORT.md](docs/EPIC_4_5_10_11_API_TEST_REPORT.md). Run `npm run test:epic-apis` or `bash scripts/test-epic-writes.sh`.
+
+**Platform UI:** Use Cases `/usecases`, Knowledge, Learning `/learning`, Evaluation `/evaluation` all call `/incident-api` (Docker defaults to the TDK gateway; VPN required).
 
 ## Running it
 
