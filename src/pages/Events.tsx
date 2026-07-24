@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
+import { ListFilter, Search } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { useEmsErrors, useEmsEvents } from '../hooks/queries';
 import { ChartCard } from '../components/ChartCard';
 import { DataTable } from '../components/DataTable';
@@ -13,18 +14,65 @@ import type { EmsEvent } from '../types/netapp';
 
 type Mode = 'all' | 'errors';
 
+/** Khai / TDK operational noise — hide by default so actionable events surface first. */
+const NOISE_PATTERNS: RegExp[] = [
+  /failed\s+login/i,
+  /authentication\s+fail/i,
+  /login\s+fail/i,
+  /snapshot\s+policy\s+drift/i,
+  /policy\s+drift/i,
+  /peer\s+address\s+mismatch/i,
+  /address\s+mismatch/i,
+];
+
+function isOperationalNoise(event: EmsEvent): boolean {
+  const haystack = `${event.log_message ?? ''} ${event.message?.name ?? ''} ${event.source ?? ''}`;
+  return NOISE_PATTERNS.some((re) => re.test(haystack));
+}
+
 function eventKey(event: EmsEvent): string {
   return `${event.node?.name ?? 'node'}-${event.index}-${event.time}`;
 }
 
 export function Events() {
-  const [mode, setMode] = useState<Mode>('all');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const mode: Mode = searchParams.get('mode') === 'errors' ? 'errors' : 'all';
+  // hideNoise defaults ON; ?noise=1 shows noise
+  const hideNoise = searchParams.get('noise') !== '1';
   const [search, setSearch] = useState('');
-  const [severityFilter, setSeverityFilter] = useState<Set<string>>(new Set());
+  const [severityFilter, setSeverityFilter] = useState<Set<string>>(() => {
+    const fromUrl = searchParams.get('severity');
+    return fromUrl ? new Set(fromUrl.split(',').filter(Boolean)) : new Set();
+  });
   const [nodeFilter, setNodeFilter] = useState<string>('all');
+  const [filtersOpen, setFiltersOpen] = useState(true);
 
   const allEvents = useEmsEvents();
   const errorEvents = useEmsErrors();
+
+  function setMode(next: Mode) {
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        if (next === 'all') p.delete('mode');
+        else p.set('mode', next);
+        return p;
+      },
+      { replace: true },
+    );
+  }
+
+  function setHideNoise(hide: boolean) {
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        if (hide) p.delete('noise');
+        else p.set('noise', '1');
+        return p;
+      },
+      { replace: true },
+    );
+  }
 
   const events = useMemo<EmsEvent[]>(() => {
     if (mode === 'errors') return errorEvents.data?.events ?? [];
@@ -50,9 +98,15 @@ export function Events() {
     return [...names].sort();
   }, [events]);
 
+  const noiseHiddenCount = useMemo(
+    () => (hideNoise ? events.filter(isOperationalNoise).length : 0),
+    [events, hideNoise],
+  );
+
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     return events.filter((event) => {
+      if (hideNoise && isOperationalNoise(event)) return false;
       if (severityFilter.size > 0) {
         const severity = (event.message?.severity ?? '').toLowerCase();
         if (!severityFilter.has(severity)) return false;
@@ -64,7 +118,7 @@ export function Events() {
       }
       return true;
     });
-  }, [events, search, severityFilter, nodeFilter]);
+  }, [events, search, severityFilter, nodeFilter, hideNoise]);
 
   function toggleSeverity(severity: string) {
     setSeverityFilter((current) => {
@@ -136,81 +190,118 @@ export function Events() {
     <div className="space-y-4">
       <ChartCard
         title="EMS Event Log"
-        subtitle={`${formatNumber(filtered.length)} of ${formatNumber(events.length)} loaded events shown`}
+        subtitle={`${formatNumber(filtered.length)} of ${formatNumber(events.length)} loaded events shown${
+          noiseHiddenCount > 0 ? ` · ${formatNumber(noiseHiddenCount)} noise hidden` : ''
+        }`}
         actions={
-          <div className="flex rounded-lg border border-slate-200 p-0.5" role="tablist" aria-label="Event source">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              role="tab"
-              aria-selected={mode === 'all'}
-              onClick={() => setMode('all')}
-              className={`rounded-md px-3 py-1 text-xs font-medium ${
-                mode === 'all' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-700'
+              onClick={() => setFiltersOpen((v) => !v)}
+              aria-expanded={filtersOpen}
+              className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium ${
+                filtersOpen
+                  ? 'border-blue-300 bg-blue-50 text-blue-700'
+                  : 'border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
             >
-              All events
+              <ListFilter className="h-3.5 w-3.5" aria-hidden />
+              Filters
             </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === 'errors'}
-              onClick={() => setMode('errors')}
-              className={`rounded-md px-3 py-1 text-xs font-medium ${
-                mode === 'errors' ? 'bg-red-600 text-white' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              Errors only
-            </button>
+            <div className="flex rounded-lg border border-slate-200 p-0.5" role="tablist" aria-label="Event source">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === 'all'}
+                onClick={() => setMode('all')}
+                className={`rounded-md px-3 py-1 text-xs font-medium ${
+                  mode === 'all' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                All events
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === 'errors'}
+                onClick={() => setMode('errors')}
+                className={`rounded-md px-3 py-1 text-xs font-medium ${
+                  mode === 'errors' ? 'bg-red-600 text-white' : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Errors only
+              </button>
+            </div>
           </div>
         }
       >
-        {/* Filters */}
-        <div className="mb-3 flex flex-wrap items-center gap-3">
-          <label className="relative flex-1 min-w-56">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" aria-hidden />
-            <input
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search log messages and event names…"
-              className="w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-8 pr-3 text-xs text-slate-700 placeholder:text-slate-300 focus:border-blue-400 focus:outline-none"
-              aria-label="Search events"
-            />
-          </label>
-          <select
-            value={nodeFilter}
-            onChange={(event) => setNodeFilter(event.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 focus:border-blue-400 focus:outline-none"
-            aria-label="Filter by node"
-          >
-            <option value="all">All nodes</option>
-            {nodeOptions.map((node) => (
-              <option key={node} value={node}>
-                {node}
-              </option>
-            ))}
-          </select>
-          <div className="flex flex-wrap gap-1" role="group" aria-label="Filter by severity">
-            {SEVERITY_ORDER.map((severity) => {
-              const active = severityFilter.has(severity);
-              return (
-                <button
-                  key={severity}
-                  type="button"
-                  onClick={() => toggleSeverity(severity)}
-                  aria-pressed={active}
-                  className={`rounded-full border px-2 py-0.5 text-[11px] capitalize transition-colors ${
-                    active
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-slate-200 text-slate-400 hover:border-slate-300 hover:text-slate-600'
-                  }`}
-                >
-                  {severity}
-                </button>
-              );
-            })}
+        {filtersOpen && (
+          <div className="mb-3 space-y-3">
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+              <input
+                type="checkbox"
+                checked={hideNoise}
+                onChange={(e) => setHideNoise(e.target.checked)}
+                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span>
+                Hide operational noise
+                <span className="ml-1 text-slate-400">
+                  (failed logins, snapshot policy drift, peer address mismatch)
+                </span>
+              </span>
+            </label>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="relative min-w-56 flex-1">
+                <Search
+                  className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
+                  aria-hidden
+                />
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search log messages and event names…"
+                  className="w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-8 pr-3 text-xs text-slate-700 placeholder:text-slate-300 focus:border-blue-400 focus:outline-none"
+                  aria-label="Search events"
+                />
+              </label>
+              <select
+                value={nodeFilter}
+                onChange={(event) => setNodeFilter(event.target.value)}
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 focus:border-blue-400 focus:outline-none"
+                aria-label="Filter by node"
+              >
+                <option value="all">All nodes</option>
+                {nodeOptions.map((node) => (
+                  <option key={node} value={node}>
+                    {node}
+                  </option>
+                ))}
+              </select>
+              <div className="flex flex-wrap gap-1" role="group" aria-label="Filter by severity">
+                {SEVERITY_ORDER.map((severity) => {
+                  const active = severityFilter.has(severity);
+                  return (
+                    <button
+                      key={severity}
+                      type="button"
+                      onClick={() => toggleSeverity(severity)}
+                      aria-pressed={active}
+                      className={`rounded-full border px-2 py-0.5 text-[11px] capitalize transition-colors ${
+                        active
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-slate-200 text-slate-400 hover:border-slate-300 hover:text-slate-600'
+                      }`}
+                    >
+                      {severity}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
         {isPending ? (
           <LoadingSkeleton rows={12} />

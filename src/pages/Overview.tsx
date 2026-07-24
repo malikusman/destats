@@ -155,6 +155,7 @@ export function Overview() {
           tone={openIssues > 0 ? (severity.alert || severity.emergency ? 'crit' : 'warn') : 'ok'}
           icon={AlertOctagon}
           loading={ems.isPending}
+          to="/events?mode=errors"
         />
       </div>
 
