@@ -3,6 +3,8 @@ import { useRefreshInterval as useRefreshCtx } from './RefreshContext';
 import {
   fetchIncidentById,
   fetchIncidentList,
+  fetchIncidentAssets,
+  fetchIncidentSignals,
   fetchIncidentRecommendations,
   fetchIncidentStats,
   fetchIncidentTimeline,
@@ -28,6 +30,15 @@ export function useIncidentStats() {
   return useQuery({
     queryKey: ['incident-service', 'stats'],
     queryFn: fetchIncidentStats,
+    refetchInterval,
+  });
+}
+
+export function useIncidentSignals() {
+  const refetchInterval = useRefreshInterval();
+  return useQuery({
+    queryKey: ['incident-service', 'signals'],
+    queryFn: fetchIncidentSignals,
     refetchInterval,
   });
 }
@@ -64,6 +75,14 @@ export function useIncidentRecommendations(id: string | undefined) {
   return useQuery({
     queryKey: ['incident-service', 'recommendations', id],
     queryFn: () => (id ? fetchIncidentRecommendations(id) : []),
+    enabled: !!id,
+  });
+}
+
+export function useIncidentAssets(id: string | undefined) {
+  return useQuery({
+    queryKey: ['incident-service', 'assets', id],
+    queryFn: () => (id ? fetchIncidentAssets(id) : []),
     enabled: !!id,
   });
 }

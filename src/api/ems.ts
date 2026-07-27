@@ -28,8 +28,13 @@ export async function fetchEmsEvents(cursor?: string | null): Promise<EmsPage> {
  * /api/netapp/ems/errors puts records at the top level (different envelope).
  * Normalizes to the same EmsPage shape.
  */
-export async function fetchEmsErrors(): Promise<EmsPage> {
-  const response = await apiGet<EmsErrorsResponse>('/api/netapp/ems/errors');
+/** Scan depth for /ems/errors — must match summary `events_examined` so KPI counts align. */
+export const EMS_ERRORS_SCAN_LIMIT = 1000;
+
+export async function fetchEmsErrors(limit = EMS_ERRORS_SCAN_LIMIT): Promise<EmsPage> {
+  const response = await apiGet<EmsErrorsResponse>(
+    `/api/netapp/ems/errors?limit=${encodeURIComponent(String(limit))}`,
+  );
   return {
     events: response.records ?? [],
     nextCursor: null,

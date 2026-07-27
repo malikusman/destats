@@ -1,7 +1,8 @@
 import { Link, useParams } from 'react-router-dom';
-import { Clock, Link2, Server } from 'lucide-react';
+import { Clock, Link2, Package, Server } from 'lucide-react';
 import { IncidentPlatformPanels } from '../components/IncidentPlatformPanels';
 import {
+  useIncidentAssets,
   useIncidentDetail,
   useIncidentRecommendations,
   useIncidentTimeline,
@@ -16,6 +17,7 @@ export function IncidentOverviewApi() {
   const timeline = useIncidentTimeline(id);
   const related = useRelatedIncidents(id);
   const recommendations = useIncidentRecommendations(id);
+  const assets = useIncidentAssets(id);
 
   const isLoading = detail.isLoading || timeline.isLoading;
 
@@ -36,6 +38,7 @@ export function IncidentOverviewApi() {
   const events = timeline.data ?? [];
   const relatedList = related.data ?? [];
   const recs = recommendations.data ?? [];
+  const incidentAssets = assets.data ?? [];
 
   return (
     <div className="space-y-6">
@@ -64,12 +67,44 @@ export function IncidentOverviewApi() {
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
+          <Package className="h-4 w-4 text-slate-400" />
+          Linked Assets
+        </div>
+        {assets.isLoading ? (
+          <p className="text-sm text-slate-400">Loading assets…</p>
+        ) : assets.isError ? (
+          <p className="text-sm text-amber-700">
+            Assets endpoint is currently unavailable.
+          </p>
+        ) : incidentAssets.length === 0 ? (
+          <p className="text-sm text-slate-400">
+            No assets returned for this incident.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {incidentAssets.map((asset, index) => (
+              <span
+                key={`${asset.asset_id ?? asset.name ?? index}`}
+                className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600"
+              >
+                {asset.name ?? asset.asset_id ?? `Asset ${index + 1}`}
+                {asset.type ? ` (${asset.type})` : ''}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-700">
           <Clock className="h-4 w-4 text-slate-400" />
           Incident Timeline
         </div>
-        {events.length === 0 ? (
-          <p className="text-sm text-slate-400">No timeline events.</p>
+        {timeline.isError ? (
+          <p className="text-sm text-amber-700">Timeline endpoint is currently unavailable.</p>
+        ) : events.length === 0 ? (
+          <p className="text-sm text-slate-400">No timeline events returned for this incident.</p>
         ) : (
           <ol className="relative border-l border-slate-200 pl-6">
             {events.map((event, i) => (
@@ -91,8 +126,10 @@ export function IncidentOverviewApi() {
           <Link2 className="h-4 w-4 text-slate-400" />
           Related Incidents
         </div>
-        {relatedList.length === 0 ? (
-          <p className="text-sm text-slate-400">No related incidents.</p>
+        {related.isError ? (
+          <p className="text-sm text-amber-700">Related incidents are currently unavailable.</p>
+        ) : relatedList.length === 0 ? (
+          <p className="text-sm text-slate-400">No related incidents found.</p>
         ) : (
           <div className="space-y-2">
             {relatedList.map((rel) => {
@@ -127,6 +164,7 @@ export function IncidentOverviewApi() {
           title={incident.title}
           description={incident.description}
           recommendations={recs}
+          recommendationsUnavailable={recommendations.isError}
         />
       )}
     </div>

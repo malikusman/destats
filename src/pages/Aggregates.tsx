@@ -103,10 +103,18 @@ export function Aggregates() {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-xl font-bold text-slate-900">Aggregates</h1>
+        <p className="mt-0.5 text-sm text-slate-500">
+          Physical storage pools on each node that host volumes and enforce capacity thresholds.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
       {data.map((aggregate) => (
         <AggregateCard key={aggregate.uuid} aggregate={aggregate} />
       ))}
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 # Scorpius Incident Service API
 
-Working API reference for the Incident Service endpoints integrated into the destats dashboard. All paths below are served by the bundled **mock-api** (`mock-api/server.mjs`) and proxied through Nginx at `/incident-api`.
+Working API reference for the Incident Service endpoints integrated into the destats dashboard. Calls are made through Nginx at `/incident-api` and can target either the TDK gateway or local mock-api.
 
 > **Not covered here:** Demo incidents with `INC-*` IDs are client-side mocks (`src/mocks`) — they are not HTTP APIs. This document covers only the REST Incident Service.
 
@@ -48,14 +48,21 @@ None. All endpoints are open (mock/dev environment).
 | GET | `/health` | 200 | No | `fetchIncidentHealth` |
 | GET | `/incidents/stats` | 200 | Yes — KPI tiles | `fetchIncidentStats` |
 | GET | `/incidents` | 200 | Yes — incidents list (Live rows) | `fetchIncidentList` |
+| GET | `/signals` | 200 | Yes — incidents source status panel | `fetchIncidentSignals` |
 | GET | `/incidents/{id}` | 200 / 404 | Yes — UUID detail header + overview | `fetchIncidentById` |
 | GET | `/incidents/{id}/timeline` | 200 / 404 | Yes — Overview timeline | `fetchIncidentTimeline` |
 | GET | `/incidents/{id}/related` | 200 / 404 | Yes — Overview related section | `fetchRelatedIncidents` |
 | GET | `/incidents/{id}/recommendations` | 200 / 404 | Yes — Overview recommendations | `fetchIncidentRecommendations` |
+| GET | `/incidents/{id}/assets` | 200 / 404 | Yes — Overview linked assets section | `fetchIncidentAssets` |
 | POST | `/incidents` | 201 / 200 | **No UI** | `createIncidentFromAlert` |
 | PATCH | `/incidents/{id}` | 200 / 404 | **No UI** | `patchIncident` |
 
-**Verified:** 2026-07-09 against `http://10.0.65.19:8088/incident-api`
+**Verified:** 2026-07-27 against `http://10.0.65.19:8088/incident-api`
+
+Current gateway behavior during latest verification:
+- `GET /incidents` returns `[]` and `GET /incidents/stats` returns all-zero counts.
+- `GET /signals` and `GET /incidents/{id}/assets` return `200` with empty arrays when no data exists.
+- This is treated as healthy-but-empty data in the UI (not an API failure).
 
 ---
 

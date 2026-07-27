@@ -53,7 +53,7 @@ export function Overview() {
   const volumes = useVolumesSummary();
   const interfaces = useInterfacesSummary();
   const ems = useEmsSummary();
-  const emsErrors = useEmsErrors();
+  const emsErrors = useEmsErrors(ems.data?.events_examined ?? 1000);
   const meta = useMetaSummary();
 
   // --- KPI derivations -----------------------------------------------------
@@ -98,6 +98,13 @@ export function Overview() {
 
   return (
     <div className="space-y-4">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600 shadow-sm">
+        <p className="font-medium text-slate-700">Operations snapshot</p>
+        <p className="mt-1 text-xs text-slate-500">
+          This page summarizes storage health, capacity, and event severity from recent NetApp telemetry.
+          Use KPI tiles and charts to drill into incidents and EMS event detail.
+        </p>
+      </div>
       {/* KPI row */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
         <KpiTile
@@ -106,6 +113,7 @@ export function Overview() {
           tone={nodes.isPending ? 'neutral' : allHealthy ? 'ok' : 'crit'}
           icon={Gauge}
           loading={nodes.isPending}
+          hint="Overall infrastructure state"
         />
         <KpiTile
           label="Nodes Up"
@@ -113,6 +121,7 @@ export function Overview() {
           tone={ratioTone(nodesUp, nodesTotal)}
           icon={Server}
           loading={nodes.isPending}
+          hint="Node availability ratio"
         />
         <KpiTile
           label="Aggregates Online"
@@ -120,6 +129,7 @@ export function Overview() {
           tone={ratioTone(aggsOnline, aggsTotal)}
           icon={HardDrive}
           loading={aggregates.isPending}
+          hint="Aggregate online health"
         />
         <KpiTile
           label="Interfaces Up"
@@ -127,6 +137,7 @@ export function Overview() {
           tone={ratioTone(lifsUp, lifsTotal)}
           icon={Network}
           loading={interfaces.isPending}
+          hint="Network interface health"
         />
         <KpiTile
           label="Volumes Online"
@@ -135,6 +146,7 @@ export function Overview() {
           tone={ratioTone(volsOnline, volsTotal)}
           icon={Database}
           loading={volumes.isPending}
+          hint="Online volume count"
         />
         <KpiTile
           label="Used Capacity"
@@ -147,15 +159,20 @@ export function Overview() {
           tone={capacityTone(usedPercent)}
           icon={Gauge}
           loading={volumes.isPending}
+          hint="Used vs total cluster capacity"
         />
         <KpiTile
           label="Errors + Alerts"
           value={formatNumber(openIssues)}
-          sublabel={ems.data ? `last ${formatNumber(ems.data.events_examined)} events` : undefined}
+          sublabel={
+            ems.data
+              ? `error, alert, and emergency in last ${formatNumber(ems.data.events_examined)} events`
+              : undefined
+          }
           tone={openIssues > 0 ? (severity.alert || severity.emergency ? 'crit' : 'warn') : 'ok'}
           icon={AlertOctagon}
           loading={ems.isPending}
-          to="/events?mode=errors"
+          to="/events?severity=emergency,alert,error"
         />
       </div>
 

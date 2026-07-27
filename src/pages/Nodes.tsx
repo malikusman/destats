@@ -165,10 +165,18 @@ export function Nodes() {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-xl font-bold text-slate-900">Nodes</h1>
+        <p className="mt-0.5 text-sm text-slate-500">
+          Cluster controllers with hardware health, uptime, and high-availability status.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       {data.map((node) => (
         <NodeCard key={node.uuid} node={node} />
       ))}
+      </div>
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { fetchHealth } from '../api/health';
 import { fetchMetaSummary } from '../api/summary';
-import { fetchEmsErrors, fetchEmsEvents, fetchEmsSummary } from '../api/ems';
+import { fetchEmsErrors, fetchEmsEvents, fetchEmsSummary, EMS_ERRORS_SCAN_LIMIT } from '../api/ems';
 import { fetchVolumes, fetchVolumesSummary } from '../api/volumes';
 import { fetchAggregates, fetchAggregatesSummary } from '../api/aggregates';
 import { fetchNodes, fetchNodesSummary } from '../api/nodes';
@@ -85,12 +85,12 @@ export function useInterfacesSummary() {
   });
 }
 
-/** Small pre-filtered errors list; cheap enough to poll with the summaries. */
-export function useEmsErrors() {
+/** Pre-filtered emergency/alert/error list; scan limit should match summary window. */
+export function useEmsErrors(limit = EMS_ERRORS_SCAN_LIMIT) {
   const refetchInterval = useSummaryInterval();
   return useQuery({
-    queryKey: ['ems-errors'],
-    queryFn: fetchEmsErrors,
+    queryKey: ['ems-errors', limit],
+    queryFn: () => fetchEmsErrors(limit),
     refetchInterval,
   });
 }

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ClipboardCheck, Play, Search } from 'lucide-react';
+import { ClipboardCheck, ListFilter, Play, Search, X } from 'lucide-react';
 import {
   useEvaluationHistory,
   useEvaluations,
@@ -56,8 +56,11 @@ function EvaluationCard({
 
 export function Evaluation() {
   const [query, setQuery] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [scoreBandFilter, setScoreBandFilter] = useState<'all' | 'pass' | 'watch' | 'fail'>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [learningId, setLearningId] = useState('LRN-749118C28398');
+  const [learningId, setLearningId] = useState('');
   const [showRun, setShowRun] = useState(false);
 
   const list = useEvaluations();
@@ -76,15 +79,25 @@ export function Evaluation() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return combined;
     return combined.filter(
-      (ev) =>
-        ev.evaluation_id.toLowerCase().includes(q) ||
-        (ev.learning_id ?? '').toLowerCase().includes(q) ||
-        (ev.incident_id ?? '').toLowerCase().includes(q) ||
-        ev.evaluation_type.toLowerCase().includes(q),
+      (ev) => {
+        if (statusFilter !== 'all' && ev.status.toLowerCase() !== statusFilter) return false;
+        if (scoreBandFilter !== 'all') {
+          const score = ev.overall_score ?? -1;
+          if (scoreBandFilter === 'pass' && score < 0.8) return false;
+          if (scoreBandFilter === 'watch' && (score < 0.6 || score >= 0.8)) return false;
+          if (scoreBandFilter === 'fail' && score >= 0.6) return false;
+        }
+        if (!q) return true;
+        return (
+          ev.evaluation_id.toLowerCase().includes(q) ||
+          (ev.learning_id ?? '').toLowerCase().includes(q) ||
+          (ev.incident_id ?? '').toLowerCase().includes(q) ||
+          ev.evaluation_type.toLowerCase().includes(q)
+        );
+      },
     );
-  }, [combined, query]);
+  }, [combined, query, scoreBandFilter, statusFilter]);
 
   const selected =
     filtered.find((e) => e.evaluation_id === selectedId) ??
@@ -110,6 +123,11 @@ export function Evaluation() {
   }
 
   const isLoading = list.isLoading && history.isLoading;
+  const statusOptions = useMemo(
+    () => Array.from(new Set(combined.map((ev) => ev.status.toLowerCase()))).sort(),
+    [combined],
+  );
+  const hasFilters = Boolean(query.trim() || statusFilter !== 'all' || scoreBandFilter !== 'all');
 
   return (
     <div className="space-y-6">
@@ -117,17 +135,31 @@ export function Evaluation() {
         <div>
           <h1 className="text-xl font-bold text-slate-900">Evaluation</h1>
           <p className="mt-0.5 text-sm text-slate-500">
-            Outcome scores and metric breakdowns for learning runs
+            Scores recommendation quality, relevance, and response performance across learning runs.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowRun((v) => !v)}
-          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          <Play className="h-4 w-4" />
-          {showRun ? 'Cancel' : 'Run evaluation'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((v) => !v)}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm ${
+              filtersOpen || hasFilters
+                ? 'border-blue-300 bg-blue-50 text-blue-700'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <ListFilter className="h-3.5 w-3.5" />
+            Filters
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowRun((v) => !v)}
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            <Play className="h-4 w-4" />
+            {showRun ? 'Cancel' : 'Run evaluation'}
+          </button>
+        </div>
       </div>
 
       {showRun && (
@@ -168,6 +200,84 @@ export function Evaluation() {
         />
       </div>
 
+      {filtersOpen && (
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-medium text-slate-700">Filter evaluations</p>
+            {hasFilters && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery('');
+                  setStatusFilter('all');
+                  setScoreBandFilter('all');
+                }}
+                className="text-xs font-medium text-blue-600 hover:text-blue-800"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {statusOptions.map((status) => (
+              <button
+                key={status}
+                type="button"
+                onClick={() => setStatusFilter((prev) => (prev === status ? 'all' : status))}
+                className={`rounded-full border px-2.5 py-1 text-xs capitalize ${
+                  statusFilter === status
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {([
+              ['pass', 'Score >= 0.80'],
+              ['watch', 'Score 0.60-0.79'],
+              ['fail', 'Score < 0.60'],
+            ] as const).map(([band, label]) => (
+              <button
+                key={band}
+                type="button"
+                onClick={() => setScoreBandFilter((prev) => (prev === band ? 'all' : band))}
+                className={`rounded-full border px-2.5 py-1 text-xs ${
+                  scoreBandFilter === band
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {hasFilters && (
+        <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+          {statusFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 capitalize">
+              {statusFilter}
+              <button type="button" onClick={() => setStatusFilter('all')} aria-label="Clear status filter">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          {scoreBandFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 capitalize">
+              {scoreBandFilter}
+              <button type="button" onClick={() => setScoreBandFilter('all')} aria-label="Clear score filter">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="space-y-3">
           {isLoading &&
@@ -176,7 +286,7 @@ export function Evaluation() {
             ))}
           {!isLoading && filtered.length === 0 && (
             <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-400">
-              No evaluations yet.
+              No evaluations match the current filters.
             </div>
           )}
           {!isLoading &&

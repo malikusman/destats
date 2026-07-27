@@ -7,6 +7,7 @@ import {
   Search,
   Tag,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useKnowledge, useKnowledgeSearch } from '../hooks/scorpius';
 import { formatRelative } from '../lib/format';
 import type { KnowledgeDocument } from '../types/scorpius';
@@ -80,13 +81,13 @@ function DocumentCard({ doc }: { doc: KnowledgeDocument }) {
             <div className="mt-1 text-xs text-slate-400">
               Linked incidents:{' '}
               {doc.related_incident_ids.map((id) => (
-                <a
+                <Link
                   key={id}
-                  href={`/incidents/${id}`}
+                  to={`/incidents/${id}`}
                   className="mr-1 font-mono text-blue-600 hover:underline"
                 >
                   {id}
-                </a>
+                </Link>
               ))}
             </div>
           )}
@@ -133,7 +134,7 @@ export function Knowledge() {
       <div>
         <h1 className="text-xl font-bold text-slate-900">Knowledge Repository</h1>
         <p className="mt-0.5 text-sm text-slate-500">
-          Runbooks and historical resolutions used by Scorpius
+          Searchable guidance and historical context used to inform recommendations.
         </p>
       </div>
 

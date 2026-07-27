@@ -1,4 +1,5 @@
 export type IncidentSource = 'demo' | 'api';
+export type DataSourceState = 'live' | 'demo' | 'unavailable';
 
 export interface UnifiedIncidentListItem {
   id: string;
@@ -25,4 +26,5 @@ export interface UnifiedIncidentsResult {
   incidents: UnifiedIncidentListItem[];
   stats: UnifiedIncidentStats;
   apiAvailable: boolean;
+  sourceState: DataSourceState;
 }

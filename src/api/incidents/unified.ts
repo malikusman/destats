@@ -38,5 +38,6 @@ export async function fetchUnifiedIncidents(): Promise<UnifiedIncidentsResult> {
     incidents,
     stats: mergeIncidentStats(demoData, apiStats),
     apiAvailable,
+    sourceState: apiAvailable ? 'live' : demoData.incidents.length > 0 ? 'demo' : 'unavailable',
   };
 }

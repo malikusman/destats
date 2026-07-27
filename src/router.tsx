@@ -11,13 +11,11 @@ import { IncidentOverview } from './pages/IncidentOverview';
 import { IncidentDetail } from './pages/IncidentDetail';
 import { AiReasoning } from './pages/AiReasoning';
 import { Planning } from './pages/Planning';
-import { Execution, ExecutionDashboard } from './pages/Execution';
 import { Knowledge } from './pages/Knowledge';
 import { UseCases } from './pages/UseCases';
 import { Learning } from './pages/Learning';
 import { Evaluation } from './pages/Evaluation';
 import { SystemStatus } from './pages/SystemStatus';
-import { ApiDocs } from './pages/ApiDocs';
 
 export const router = createBrowserRouter([
   {
@@ -39,16 +37,16 @@ export const router = createBrowserRouter([
           { path: 'overview', element: <IncidentOverview /> },
           { path: 'reasoning', element: <AiReasoning /> },
           { path: 'planning', element: <Planning /> },
-          { path: 'execution', element: <Execution /> },
+          { path: 'execution', element: <Navigate to="overview" replace /> },
         ],
       },
-      { path: 'execution', element: <ExecutionDashboard /> },
+      { path: 'execution', element: <Navigate to="/incidents" replace /> },
       { path: 'knowledge', element: <Knowledge /> },
       { path: 'usecases', element: <UseCases /> },
       { path: 'learning', element: <Learning /> },
       { path: 'evaluation', element: <Evaluation /> },
       { path: 'system-status', element: <SystemStatus /> },
-      { path: 'api-docs', element: <ApiDocs /> },
+      { path: 'api-docs', element: <Navigate to="/" replace /> },
     ],
   },
 ]);

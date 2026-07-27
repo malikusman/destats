@@ -5,7 +5,6 @@ import {
   Clock,
   GitBranch,
   LayoutList,
-  Play,
 } from 'lucide-react';
 import { useIncidentDetail } from '../hooks/incident-service';
 import { useIncident } from '../hooks/scorpius';
@@ -70,7 +69,6 @@ export function IncidentDetail() {
     { to: 'overview', label: 'Overview', icon: LayoutList, end: true, demoOnly: false },
     { to: 'reasoning', label: 'AI Reasoning', icon: BrainCircuit, demoOnly: true },
     { to: 'planning', label: 'Planning', icon: GitBranch, demoOnly: true },
-    { to: 'execution', label: 'Execution', icon: Play, demoOnly: true },
   ];
 
   return (
@@ -119,9 +117,6 @@ export function IncidentDetail() {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-mono text-sm text-slate-400">{apiIncident.incident_id}</span>
-                  <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-100">
-                    Live
-                  </span>
                   <span
                     className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${SEVERITY_BG[severityTone(apiIncident.severity)]}`}
                   >
@@ -171,7 +166,7 @@ export function IncidentDetail() {
                 <span
                   key={to}
                   className={tabClass(false)}
-                  title="Workflow tabs are available for INC-* incidents only"
+                  title="This workflow tab is not available for this incident"
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0" />
                   <span className="min-w-0 truncate">{label}</span>

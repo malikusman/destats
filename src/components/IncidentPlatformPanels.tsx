@@ -16,6 +16,7 @@ interface Props {
   title: string;
   description: string;
   recommendations: Recommendation[];
+  recommendationsUnavailable?: boolean;
 }
 
 export function IncidentPlatformPanels({
@@ -23,6 +24,7 @@ export function IncidentPlatformPanels({
   title,
   description,
   recommendations,
+  recommendationsUnavailable = false,
 }: Props) {
   const query = useMemo(
     () => [title, description].filter(Boolean).join(' — ').slice(0, 400),
@@ -131,10 +133,10 @@ export function IncidentPlatformPanels({
         </div>
         {retrieve.isLoading && <p className="text-sm text-slate-400">Retrieving…</p>}
         {retrieve.isError && (
-          <p className="text-sm text-red-600">{(retrieve.error as Error).message}</p>
+          <p className="text-sm text-amber-700">Knowledge retrieval is currently unavailable.</p>
         )}
         {!retrieve.isLoading && knowledgeRecords.length === 0 && (
-          <p className="text-sm text-slate-400">No knowledge matches for this incident.</p>
+          <p className="text-sm text-slate-400">No knowledge matches were returned for this incident.</p>
         )}
         <div className="space-y-2">
           {knowledgeRecords.map((item) => (
@@ -161,8 +163,12 @@ export function IncidentPlatformPanels({
           <CheckCircle2 className="h-4 w-4 text-emerald-500" />
           Recommendations (learning-adjusted)
         </div>
-        {recommendations.length === 0 && !applied ? (
-          <p className="text-sm text-slate-400">No recommendations yet.</p>
+        {recommendationsUnavailable ? (
+          <p className="text-sm text-amber-700">
+            Recommendations are currently unavailable from the Incident API.
+          </p>
+        ) : recommendations.length === 0 && !applied ? (
+          <p className="text-sm text-slate-400">No recommendations returned for this incident.</p>
         ) : (
           <div className="space-y-2">
             {(applied ?? []).map((rec) => (
@@ -218,8 +224,11 @@ export function IncidentPlatformPanels({
           Learning for this incident
         </div>
         {learning.isLoading && <p className="text-sm text-slate-400">Loading…</p>}
-        {!learning.isLoading && learningRecords.length === 0 && (
-          <p className="text-sm text-slate-400">No learning records linked yet.</p>
+        {learning.isError && (
+          <p className="text-sm text-amber-700">Learning history is currently unavailable.</p>
+        )}
+        {!learning.isLoading && !learning.isError && learningRecords.length === 0 && (
+          <p className="text-sm text-slate-400">No learning records are linked yet.</p>
         )}
         <div className="space-y-2">
           {learningRecords.map((rec) => (

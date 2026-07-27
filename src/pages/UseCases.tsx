@@ -3,8 +3,10 @@ import {
   CheckCircle2,
   ClipboardList,
   Lightbulb,
+  ListFilter,
   Search,
   Send,
+  X,
 } from 'lucide-react';
 import {
   useApproveUseCase,
@@ -68,6 +70,9 @@ function UseCaseCard({
 
 export function UseCases() {
   const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [title, setTitle] = useState('');
@@ -82,12 +87,38 @@ export function UseCases() {
 
   const isSearching = query.trim().length >= 2;
   const items = isSearching ? (search.data ?? []) : (list.data ?? []);
+  const filteredItems = useMemo(() => {
+    return items.filter((uc) => {
+      if (statusFilter !== 'all' && uc.status.toLowerCase() !== statusFilter) return false;
+      if (categoryFilter !== 'all' && (uc.category ?? 'uncategorized') !== categoryFilter) return false;
+      return true;
+    });
+  }, [items, statusFilter, categoryFilter]);
   const selected = useMemo(
-    () => items.find((u) => u.id === selectedId) ?? list.data?.find((u) => u.id === selectedId) ?? null,
-    [items, list.data, selectedId],
+    () =>
+      filteredItems.find((u) => u.id === selectedId) ??
+      items.find((u) => u.id === selectedId) ??
+      list.data?.find((u) => u.id === selectedId) ??
+      null,
+    [filteredItems, items, list.data, selectedId],
   );
 
   const isLoading = isSearching ? search.isLoading : list.isLoading;
+  const statusOptions = useMemo(
+    () =>
+      Array.from(
+        new Set((list.data ?? []).map((uc) => uc.status.toLowerCase())),
+      ).sort(),
+    [list.data],
+  );
+  const categoryOptions = useMemo(
+    () =>
+      Array.from(
+        new Set((list.data ?? []).map((uc) => uc.category ?? 'uncategorized')),
+      ).sort(),
+    [list.data],
+  );
+  const hasFilters = statusFilter !== 'all' || categoryFilter !== 'all';
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -112,17 +143,31 @@ export function UseCases() {
         <div>
           <h1 className="text-xl font-bold text-slate-900">Use Cases</h1>
           <p className="mt-0.5 text-sm text-slate-500">
-            Draft, submit, and approve operational use cases
+            Operational runbooks in lifecycle stages from draft to approval.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowCreate((v) => !v)}
-          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          <Lightbulb className="h-4 w-4" />
-          {showCreate ? 'Cancel' : 'New draft'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((v) => !v)}
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm ${
+              filtersOpen || hasFilters
+                ? 'border-blue-300 bg-blue-50 text-blue-700'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <ListFilter className="h-3.5 w-3.5" />
+            Filters
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowCreate((v) => !v)}
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            <Lightbulb className="h-4 w-4" />
+            {showCreate ? 'Cancel' : 'New draft'}
+          </button>
+        </div>
       </div>
 
       {showCreate && (
@@ -182,19 +227,98 @@ export function UseCases() {
         />
       </div>
 
+      {filtersOpen && (
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-medium text-slate-700">Filter use cases</p>
+            {hasFilters && (
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusFilter('all');
+                  setCategoryFilter('all');
+                }}
+                className="text-xs font-medium text-blue-600 hover:text-blue-800"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {statusOptions.map((status) => (
+              <button
+                key={status}
+                type="button"
+                onClick={() => setStatusFilter((prev) => (prev === status ? 'all' : status))}
+                className={`rounded-full border px-2.5 py-1 text-xs capitalize ${
+                  statusFilter === status
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {categoryOptions.map((categoryOption) => (
+              <button
+                key={categoryOption}
+                type="button"
+                onClick={() =>
+                  setCategoryFilter((prev) => (prev === categoryOption ? 'all' : categoryOption))
+                }
+                className={`rounded-full border px-2.5 py-1 text-xs ${
+                  categoryFilter === categoryOption
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                }`}
+              >
+                {categoryOption}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {hasFilters && (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+          {statusFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 capitalize">
+              {statusFilter}
+              <button type="button" aria-label="Clear status filter" onClick={() => setStatusFilter('all')}>
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          {categoryFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5">
+              {categoryFilter}
+              <button
+                type="button"
+                aria-label="Clear category filter"
+                onClick={() => setCategoryFilter('all')}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="space-y-3">
           {isLoading &&
             [1, 2, 3].map((n) => (
               <div key={n} className="h-24 animate-pulse rounded-xl bg-slate-100" />
             ))}
-          {!isLoading && items.length === 0 && (
+          {!isLoading && filteredItems.length === 0 && (
             <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-400">
-              No use cases found.
+              No use cases match the current filters.
             </div>
           )}
           {!isLoading &&
-            items.map((uc) => (
+            filteredItems.map((uc) => (
               <UseCaseCard
                 key={uc.id}
                 uc={uc}

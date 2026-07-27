@@ -5,6 +5,8 @@ import type {
   IncidentDetail,
   IncidentListItem,
   IncidentPatch,
+  IncidentAsset,
+  IncidentSignal,
   IncidentStats,
   Recommendation,
   RelatedIncident,
@@ -21,6 +23,10 @@ export function fetchIncidentList(): Promise<IncidentListItem[]> {
 
 export function fetchIncidentStats(): Promise<IncidentStats> {
   return incidentGet<IncidentStats>('/incidents/stats');
+}
+
+export function fetchIncidentSignals(): Promise<IncidentSignal[]> {
+  return incidentGet<IncidentSignal[]>('/signals');
 }
 
 export function fetchIncidentById(id: string): Promise<IncidentDetail> {
@@ -45,4 +51,8 @@ export function fetchRelatedIncidents(id: string): Promise<RelatedIncident[]> {
 
 export function fetchIncidentRecommendations(id: string): Promise<Recommendation[]> {
   return incidentGet<Recommendation[]>(`/incidents/${encodeURIComponent(id)}/recommendations`);
+}
+
+export function fetchIncidentAssets(id: string): Promise<IncidentAsset[]> {
+  return incidentGet<IncidentAsset[]>(`/incidents/${encodeURIComponent(id)}/assets`);
 }

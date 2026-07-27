@@ -39,10 +39,6 @@ function severityIcon(tone: SeverityTone) {
   }
 }
 
-const SOURCE_BADGE: Record<'api', string> = {
-  api: 'bg-blue-50 text-blue-700 ring-blue-100',
-};
-
 function isResolvedStatus(status: string): boolean {
   const s = status.toLowerCase();
   return s === 'resolved' || s === 'closed' || s === 'suppressed';
@@ -64,13 +60,6 @@ function IncidentRow({ incident }: { incident: UnifiedIncidentListItem }) {
           <span className="font-mono text-xs text-slate-400">
             {isWorkflow ? incident.id : `${incident.id.slice(0, 8)}…`}
           </span>
-          {incident.source === 'api' && (
-            <span
-              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${SOURCE_BADGE.api}`}
-            >
-              Live
-            </span>
-          )}
           <span
             className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset capitalize ${SEVERITY_BG[tone]}`}
           >
@@ -226,7 +215,7 @@ export function Incidents() {
         <div>
           <h1 className="text-xl font-bold text-slate-900">Incidents</h1>
           <p className="mt-0.5 text-sm text-slate-500">
-            Workflow incidents and live Incident Service data
+            Active incidents requiring investigation and follow-up.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -262,9 +251,7 @@ export function Incidents() {
 
       {!apiAvailable && !isLoading && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          Live incidents unavailable — showing workflow incidents only. Is the mock API running? Try{' '}
-          <code className="font-mono">npm run mock-api</code> or{' '}
-          <code className="font-mono">docker compose up</code>.
+          Some incident data is temporarily unavailable. Showing available records.
         </div>
       )}
 
@@ -434,7 +421,9 @@ export function Incidents() {
         <div className="space-y-3">
           {filtered.length === 0 ? (
             <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-400">
-              {hasFilters ? 'No incidents match the current filters.' : 'No incidents found.'}
+              {hasFilters
+                ? 'No incidents match the current filters.'
+                : 'No incidents to display right now.'}
             </div>
           ) : (
             filtered.map((incident) => (

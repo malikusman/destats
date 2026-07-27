@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ListFilter, Search } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import { useEmsErrors, useEmsEvents } from '../hooks/queries';
+import { useEmsErrors, useEmsEvents, useEmsSummary } from '../hooks/queries';
 import { ChartCard } from '../components/ChartCard';
 import { DataTable } from '../components/DataTable';
 import type { Column } from '../components/DataTable';
@@ -13,6 +13,8 @@ import { SEVERITY_ORDER } from '../lib/status';
 import type { EmsEvent } from '../types/netapp';
 
 type Mode = 'all' | 'errors';
+
+const ACTIONABLE_SEVERITIES = ['emergency', 'alert', 'error'] as const;
 
 /** Khai / TDK operational noise — hide by default so actionable events surface first. */
 const NOISE_PATTERNS: RegExp[] = [
@@ -34,28 +36,99 @@ function eventKey(event: EmsEvent): string {
   return `${event.node?.name ?? 'node'}-${event.index}-${event.time}`;
 }
 
+function parseSeveritySet(param: string | null): Set<string> {
+  return new Set(param ? param.split(',').filter(Boolean) : []);
+}
+
+function setsEqual(a: Set<string>, b: readonly string[]): boolean {
+  return b.length === a.size && b.every((value) => a.has(value));
+}
+
+function SeverityKpiButton({
+  label,
+  value,
+  active,
+  onClick,
+  className,
+  labelClass,
+  valueClass,
+}: {
+  label: string;
+  value: string | number;
+  active: boolean;
+  onClick: () => void;
+  className: string;
+  labelClass: string;
+  valueClass: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`rounded-xl border p-4 text-left shadow-sm transition-all ${className} ${
+        active ? 'ring-2 ring-blue-500 ring-offset-1' : 'hover:border-slate-300'
+      }`}
+    >
+      <div className={`text-xs ${labelClass}`}>{label}</div>
+      <div className={`mt-1 text-2xl font-bold tabular-nums ${valueClass}`}>{value}</div>
+      <div className="mt-1 text-[10px] text-slate-400">
+        {active ? 'Filtered — click to clear' : 'Click to filter list'}
+      </div>
+    </button>
+  );
+}
+
 export function Events() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const mode: Mode = searchParams.get('mode') === 'errors' ? 'errors' : 'all';
-  // hideNoise defaults ON; ?noise=1 shows noise
+  const severityParam = searchParams.get('severity');
+  const mode: Mode =
+    severityParam != null && severityParam !== ''
+      ? 'all'
+      : searchParams.get('mode') === 'errors'
+        ? 'errors'
+        : 'all';
   const hideNoise = searchParams.get('noise') !== '1';
-  const [search, setSearch] = useState('');
-  const [severityFilter, setSeverityFilter] = useState<Set<string>>(() => {
-    const fromUrl = searchParams.get('severity');
-    return fromUrl ? new Set(fromUrl.split(',').filter(Boolean)) : new Set();
-  });
-  const [nodeFilter, setNodeFilter] = useState<string>('all');
-  const [filtersOpen, setFiltersOpen] = useState(true);
+  const search = searchParams.get('q') ?? '';
+  const nodeFilter = searchParams.get('node') ?? 'all';
+  const severityFilter = useMemo(() => parseSeveritySet(severityParam), [severityParam]);
+  const [filtersOpen, setFiltersOpen] = useState(() => Boolean(severityParam));
 
+  const emsSummary = useEmsSummary();
+  const eventsExamined = emsSummary.data?.events_examined ?? 1000;
   const allEvents = useEmsEvents();
-  const errorEvents = useEmsErrors();
+  const errorEvents = useEmsErrors(eventsExamined);
+
+  const actionableOnlyFilter =
+    severityFilter.size > 0 &&
+    Array.from(severityFilter).every((severity) =>
+      (ACTIONABLE_SEVERITIES as readonly string[]).includes(severity),
+    );
+  const useErrorsFeed = mode === 'errors' || actionableOnlyFilter;
+
+  function patchParams(patch: Record<string, string | null>) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        for (const [key, value] of Object.entries(patch)) {
+          if (!value) next.delete(key);
+          else next.set(key, value);
+        }
+        return next;
+      },
+      { replace: true },
+    );
+  }
 
   function setMode(next: Mode) {
     setSearchParams(
       (prev) => {
         const p = new URLSearchParams(prev);
         if (next === 'all') p.delete('mode');
-        else p.set('mode', next);
+        else {
+          p.set('mode', next);
+          p.delete('severity');
+        }
         return p;
       },
       { replace: true },
@@ -74,8 +147,38 @@ export function Events() {
     );
   }
 
+  function setSeverityFilter(next: Set<string>) {
+    patchParams({
+      severity: next.size > 0 ? Array.from(next).join(',') : null,
+      mode: null,
+    });
+  }
+
+  function toggleSeverity(severity: string) {
+    const next = new Set(severityFilter);
+    if (next.has(severity)) next.delete(severity);
+    else next.add(severity);
+    setSeverityFilter(next);
+  }
+
+  function toggleSeverityKpi(severity: string) {
+    if (severityFilter.size === 1 && severityFilter.has(severity)) {
+      setSeverityFilter(new Set());
+    } else {
+      setSeverityFilter(new Set([severity]));
+    }
+  }
+
+  function toggleActionableFilter() {
+    if (setsEqual(severityFilter, ACTIONABLE_SEVERITIES)) {
+      setSeverityFilter(new Set());
+    } else {
+      setSeverityFilter(new Set(ACTIONABLE_SEVERITIES));
+    }
+  }
+
   const events = useMemo<EmsEvent[]>(() => {
-    if (mode === 'errors') return errorEvents.data?.events ?? [];
+    if (useErrorsFeed) return errorEvents.data?.events ?? [];
     const seen = new Set<string>();
     const result: EmsEvent[] = [];
     for (const page of allEvents.data?.pages ?? []) {
@@ -88,7 +191,19 @@ export function Events() {
       }
     }
     return result;
-  }, [mode, allEvents.data, errorEvents.data]);
+  }, [useErrorsFeed, allEvents.data, errorEvents.data]);
+
+  const severityCounts = emsSummary.data?.severity_counts ?? {};
+  const summaryActionable =
+    (severityCounts.emergency ?? 0) + (severityCounts.alert ?? 0) + (severityCounts.error ?? 0);
+
+  const summaryFilteredTotal = useMemo(() => {
+    if (severityFilter.size === 0) return 0;
+    return Array.from(severityFilter).reduce(
+      (sum, severity) => sum + (severityCounts[severity] ?? 0),
+      0,
+    );
+  }, [severityFilter, severityCounts]);
 
   const nodeOptions = useMemo(() => {
     const names = new Set<string>();
@@ -120,19 +235,19 @@ export function Events() {
     });
   }, [events, search, severityFilter, nodeFilter, hideNoise]);
 
-  function toggleSeverity(severity: string) {
-    setSeverityFilter((current) => {
-      const next = new Set(current);
-      if (next.has(severity)) next.delete(severity);
-      else next.add(severity);
-      return next;
-    });
-  }
+  const isPending = useErrorsFeed ? errorEvents.isPending : allEvents.isPending;
+  const isError = useErrorsFeed ? errorEvents.isError : allEvents.isError;
+  const queryError = useErrorsFeed ? errorEvents.error : allEvents.error;
+  const retry = useErrorsFeed ? errorEvents.refetch : allEvents.refetch;
 
-  const isPending = mode === 'errors' ? errorEvents.isPending : allEvents.isPending;
-  const isError = mode === 'errors' ? errorEvents.isError : allEvents.isError;
-  const queryError = mode === 'errors' ? errorEvents.error : allEvents.error;
-  const retry = mode === 'errors' ? errorEvents.refetch : allEvents.refetch;
+  const subtitleParts = [
+    useErrorsFeed
+      ? severityFilter.size > 0 && summaryFilteredTotal > 0
+        ? `${formatNumber(filtered.length)} of ${formatNumber(summaryFilteredTotal)} matching in last ${formatNumber(eventsExamined)} events`
+        : `${formatNumber(filtered.length)} emergency, alert, and error events in last ${formatNumber(eventsExamined)} events`
+      : `Operational event stream. ${formatNumber(filtered.length)} of ${formatNumber(events.length)} loaded events shown`,
+    noiseHiddenCount > 0 ? `${formatNumber(noiseHiddenCount)} noise hidden` : null,
+  ].filter(Boolean);
 
   const columns: Column<EmsEvent>[] = [
     {
@@ -188,11 +303,55 @@ export function Events() {
 
   return (
     <div className="space-y-4">
+      <div>
+        <h1 className="text-xl font-bold text-slate-900">Events (EMS)</h1>
+        <p className="mt-0.5 text-sm text-slate-500">
+          Cluster event stream with severity filters for errors, alerts, and emergencies.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <SeverityKpiButton
+          label="Emergency"
+          value={formatNumber(severityCounts.emergency ?? 0)}
+          active={severityFilter.size === 1 && severityFilter.has('emergency')}
+          onClick={() => toggleSeverityKpi('emergency')}
+          className="border-red-100 bg-red-50"
+          labelClass="text-red-600"
+          valueClass="text-red-700"
+        />
+        <SeverityKpiButton
+          label="Alert"
+          value={formatNumber(severityCounts.alert ?? 0)}
+          active={severityFilter.size === 1 && severityFilter.has('alert')}
+          onClick={() => toggleSeverityKpi('alert')}
+          className="border-orange-100 bg-orange-50"
+          labelClass="text-orange-600"
+          valueClass="text-orange-700"
+        />
+        <SeverityKpiButton
+          label="Error"
+          value={formatNumber(severityCounts.error ?? 0)}
+          active={severityFilter.size === 1 && severityFilter.has('error')}
+          onClick={() => toggleSeverityKpi('error')}
+          className="border-yellow-100 bg-yellow-50"
+          labelClass="text-yellow-700"
+          valueClass="text-yellow-800"
+        />
+        <SeverityKpiButton
+          label="Errors + Alerts"
+          value={formatNumber(summaryActionable)}
+          active={setsEqual(severityFilter, ACTIONABLE_SEVERITIES)}
+          onClick={toggleActionableFilter}
+          className="border-slate-200 bg-white"
+          labelClass="text-slate-500"
+          valueClass="text-slate-900"
+        />
+      </div>
+
       <ChartCard
         title="EMS Event Log"
-        subtitle={`${formatNumber(filtered.length)} of ${formatNumber(events.length)} loaded events shown${
-          noiseHiddenCount > 0 ? ` · ${formatNumber(noiseHiddenCount)} noise hidden` : ''
-        }`}
+        subtitle={subtitleParts.join(' · ')}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -229,7 +388,7 @@ export function Events() {
                   mode === 'errors' ? 'bg-red-600 text-white' : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
-                Errors only
+                Errors feed
               </button>
             </div>
           </div>
@@ -260,7 +419,7 @@ export function Events() {
                 <input
                   type="search"
                   value={search}
-                  onChange={(event) => setSearch(event.target.value)}
+                  onChange={(event) => patchParams({ q: event.target.value || null })}
                   placeholder="Search log messages and event names…"
                   className="w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-8 pr-3 text-xs text-slate-700 placeholder:text-slate-300 focus:border-blue-400 focus:outline-none"
                   aria-label="Search events"
@@ -268,7 +427,11 @@ export function Events() {
               </label>
               <select
                 value={nodeFilter}
-                onChange={(event) => setNodeFilter(event.target.value)}
+                onChange={(event) =>
+                  patchParams({
+                    node: event.target.value === 'all' ? null : event.target.value,
+                  })
+                }
                 className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 focus:border-blue-400 focus:outline-none"
                 aria-label="Filter by node"
               >
@@ -316,7 +479,7 @@ export function Events() {
               renderExpanded={(event) => <EventDetail event={event} />}
               emptyMessage="No events match the current filters."
             />
-            {mode === 'all' && allEvents.hasNextPage && (
+            {mode === 'all' && !useErrorsFeed && allEvents.hasNextPage && (
               <div className="mt-3 flex justify-center">
                 <button
                   type="button"

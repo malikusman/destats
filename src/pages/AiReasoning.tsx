@@ -158,7 +158,7 @@ function LiveAiReasoning({ id }: { id: string }) {
   if (detail.isError || !detail.data) {
     return (
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-400">
-        Unable to load incident for live reasoning panels.
+        Unable to load incident reasoning panels.
       </div>
     );
   }
@@ -166,8 +166,8 @@ function LiveAiReasoning({ id }: { id: string }) {
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3 text-sm text-violet-900">
-        Live incident — knowledge retrieve, learning-adjusted recommendations, feedback, and
-        evaluation use platform APIs via <span className="font-mono">/incident-api</span>.
+        Knowledge retrieval, learning-adjusted recommendations, feedback, and evaluation for this
+        incident.
       </div>
       <IncidentPlatformPanels
         incidentId={id}

@@ -4,7 +4,7 @@ Single reference for the Scorpius platform APIs wired into destats: **live curl 
 
 | | |
 |---|---|
-| **Captured** | 2026-07-23 via `curl` against `http://localhost:8088/incident-api` (proxied to TDK gateway) |
+| **Captured** | 2026-07-27 via `curl` against `http://10.0.65.19:8088/incident-api` |
 | **Browser base** | `/incident-api` |
 | **Auth** | none |
 | **Legend** | **LIVE** = actual response body from that capture. **DUMMY** = illustrative sample because the live call returned empty / not found — labeled in place. |
@@ -44,7 +44,7 @@ flowchart LR
 | 8 | `POST /evaluation/run` | `evaluation_id` + metrics | “Run evaluation” |
 | 9 | Management pages | Full lists / workflow | `/knowledge`, `/usecases`, `/learning`, `/evaluation` |
 
-**Capture note (2026-07-23):** `GET /incidents` returned **`[]`** on this gateway (all zeros in stats). UUID `e94c2c19-…` returned **not found**. Learning/knowledge/usecases/evaluation data is populated. Demo `INC-*` incidents in the UI still come from client mocks.
+**Capture note (2026-07-27):** `GET /incidents` returned **`[]`** and `GET /incidents/stats` returned all zeros on this gateway. `GET /signals` and `GET /incidents/{id}/assets` returned **200 with empty arrays**. Learning/knowledge/usecases/evaluation data is populated. Demo `INC-*` incidents in the UI still come from client mocks and are labeled accordingly.
 
 ---
 
@@ -123,6 +123,15 @@ flowchart LR
 | Analysis | Live call returned an empty array. Dummy shows the list-row shape the UI expects. |
 | UI | Live rows in Incidents list when present. |
 
+#### `GET /signals` — LIVE (empty)
+
+```json
+[]
+```
+
+| Analysis | Endpoint is healthy and currently has no active signal rows. |
+| UI | Incidents source status summary. |
+
 #### `GET /incidents/{id}` — LIVE (not found for sample UUID)
 
 ```json
@@ -165,6 +174,15 @@ flowchart LR
   }
 ]
 ```
+
+#### `GET /incidents/{id}/assets` — LIVE (empty)
+
+```json
+[]
+```
+
+| Analysis | Endpoint is healthy and currently returns no linked asset rows for sampled incidents. |
+| UI | Linked Assets card in live incident overview. |
 
 #### `GET /incidents/{id}/related` — LIVE (404)
 

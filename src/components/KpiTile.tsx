@@ -8,6 +8,7 @@ interface KpiTileProps {
   label: string;
   value: ReactNode;
   sublabel?: ReactNode;
+  hint?: ReactNode;
   icon?: LucideIcon;
   tone?: StatusTone;
   loading?: boolean;
@@ -19,6 +20,7 @@ export function KpiTile({
   label,
   value,
   sublabel,
+  hint,
   icon: Icon,
   tone = 'neutral',
   loading = false,
@@ -40,15 +42,16 @@ export function KpiTile({
         </div>
       )}
       {sublabel && <div className="mt-0.5 text-xs text-slate-400">{sublabel}</div>}
-      {to && !loading && (
-        <div className="mt-1 text-[10px] font-medium text-blue-600">View details →</div>
-      )}
+      {!loading && to && <div className="mt-1 text-[10px] font-medium text-blue-600">View details →</div>}
+      {!loading && !to && hint && <div className="mt-1 text-[10px] text-slate-400">{hint}</div>}
     </>
   );
 
   const className =
     'rounded-xl border border-slate-200 bg-white p-4 shadow-sm' +
-    (to ? ' transition-colors hover:border-blue-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500' : '');
+    (to
+      ? ' transition-colors hover:border-blue-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500'
+      : '');
 
   if (to) {
     return (

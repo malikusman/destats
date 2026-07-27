@@ -56,7 +56,9 @@ export function mergeIncidentStats(
   const demoResolved = demo.incidents.filter((i) => i.status === 'resolved').length;
 
   return {
-    active: demo.active_count + (apiStats ? apiStats.new + apiStats.investigating : 0),
+    active:
+      demo.active_count +
+      (apiStats ? (apiStats.open ?? apiStats.new + apiStats.investigating) : 0),
     critical: demoCritical + (apiStats?.critical ?? 0),
     high: demoHigh + (apiStats?.high ?? 0),
     resolved: demoResolved + (apiStats?.resolved ?? 0),

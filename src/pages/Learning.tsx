@@ -3,10 +3,12 @@ import {
   BarChart3,
   CheckCircle2,
   GraduationCap,
+  ListFilter,
   Search,
   ThumbsDown,
   ThumbsUp,
   Trophy,
+  X,
   XCircle,
 } from 'lucide-react';
 import {
@@ -65,6 +67,9 @@ function LearningCard({
 
 export function Learning() {
   const [query, setQuery] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [outcomeFilter, setOutcomeFilter] = useState<'all' | 'success' | 'failed' | 'pending'>('all');
+  const [useCaseFilter, setUseCaseFilter] = useState<string>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const list = useLearningList();
@@ -75,14 +80,18 @@ export function Learning() {
   const filtered = useMemo(() => {
     const items = list.data ?? [];
     const q = query.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter(
-      (r) =>
+    return items.filter((r) => {
+      const outcome = (r.outcome_status ?? 'pending').toLowerCase();
+      if (outcomeFilter !== 'all' && outcome !== outcomeFilter) return false;
+      if (useCaseFilter !== 'all' && String(r.usecase_id ?? 'none') !== useCaseFilter) return false;
+      if (!q) return true;
+      return (
         r.learning_id.toLowerCase().includes(q) ||
         r.incident_id.toLowerCase().includes(q) ||
-        (r.recommendation ?? '').toLowerCase().includes(q),
-    );
-  }, [list.data, query]);
+        (r.recommendation ?? '').toLowerCase().includes(q)
+      );
+    });
+  }, [list.data, query, outcomeFilter, useCaseFilter]);
 
   const selected =
     filtered.find((r) => r.learning_id === selectedId) ??
@@ -96,14 +105,51 @@ export function Learning() {
       ([, v]) => typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean',
     );
   }, [stats.data]);
+  const useCaseOptions = useMemo(
+    () =>
+      Array.from(
+        new Set((list.data ?? []).map((record) => String(record.usecase_id ?? 'none'))),
+      ).sort(),
+    [list.data],
+  );
+  const hasFilters = Boolean(query.trim() || outcomeFilter !== 'all' || useCaseFilter !== 'all');
+  const rankingItems = useMemo(() => {
+    const raw = rankings.data;
+    if (!raw || typeof raw !== 'object') return [] as Array<{ recommendation: string; success_rate: number }>;
+    const maybeArray = (raw as { rankings?: unknown }).rankings;
+    if (!Array.isArray(maybeArray)) return [];
+    return maybeArray
+      .map((item) => {
+        if (!item || typeof item !== 'object') return null;
+        const rec = (item as { recommendation?: unknown }).recommendation;
+        const rate = (item as { success_rate?: unknown }).success_rate;
+        if (typeof rec !== 'string' || typeof rate !== 'number') return null;
+        return { recommendation: rec, success_rate: rate };
+      })
+      .filter((item): item is { recommendation: string; success_rate: number } => item !== null);
+  }, [rankings.data]);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900">Learning</h1>
-        <p className="mt-0.5 text-sm text-slate-500">
-          Outcome history, rankings, and feedback that adjust recommendation confidence
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-slate-900">Learning</h1>
+          <p className="mt-0.5 text-sm text-slate-500">
+            Tracks recommendation outcomes and confidence shifts based on operator feedback.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setFiltersOpen((v) => !v)}
+          className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm ${
+            filtersOpen || hasFilters
+              ? 'border-blue-300 bg-blue-50 text-blue-700'
+              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          <ListFilter className="h-3.5 w-3.5" />
+          Filters
+        </button>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -134,15 +180,24 @@ export function Learning() {
         ))}
       </div>
 
-      {rankings.data != null && (
+      {rankingItems.length > 0 && (
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-700">
             <Trophy className="h-4 w-4 text-amber-500" />
-            Rankings
+            Top recommendations by learning performance
           </div>
-          <pre className="max-h-48 overflow-auto rounded-lg bg-slate-50 p-3 font-mono text-[11px] text-slate-600">
-            {JSON.stringify(rankings.data, null, 2)}
-          </pre>
+          <ul className="space-y-2">
+            {rankingItems.slice(0, 5).map((item) => (
+              <li key={item.recommendation} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-slate-700">{item.recommendation}</p>
+                  <span className="text-xs text-slate-500">
+                    success {Math.round(item.success_rate * 100)}%
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -157,6 +212,80 @@ export function Learning() {
         />
       </div>
 
+      {filtersOpen && (
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-medium text-slate-700">Filter learning records</p>
+            {hasFilters && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery('');
+                  setOutcomeFilter('all');
+                  setUseCaseFilter('all');
+                }}
+                className="text-xs font-medium text-blue-600 hover:text-blue-800"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {(['success', 'failed', 'pending'] as const).map((outcome) => (
+              <button
+                key={outcome}
+                type="button"
+                onClick={() => setOutcomeFilter((prev) => (prev === outcome ? 'all' : outcome))}
+                className={`rounded-full border px-2.5 py-1 text-xs capitalize ${
+                  outcomeFilter === outcome
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                }`}
+              >
+                {outcome}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {useCaseOptions.map((useCaseId) => (
+              <button
+                key={useCaseId}
+                type="button"
+                onClick={() => setUseCaseFilter((prev) => (prev === useCaseId ? 'all' : useCaseId))}
+                className={`rounded-full border px-2.5 py-1 text-xs ${
+                  useCaseFilter === useCaseId
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                }`}
+              >
+                {useCaseId === 'none' ? 'No use case' : `Use case ${useCaseId}`}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {hasFilters && (
+        <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+          {outcomeFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 capitalize">
+              {outcomeFilter}
+              <button type="button" onClick={() => setOutcomeFilter('all')} aria-label="Clear outcome filter">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          {useCaseFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5">
+              {useCaseFilter === 'none' ? 'No use case' : `Use case ${useCaseFilter}`}
+              <button type="button" onClick={() => setUseCaseFilter('all')} aria-label="Clear use case filter">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="space-y-3">
           {list.isLoading &&
@@ -165,7 +294,7 @@ export function Learning() {
             ))}
           {!list.isLoading && filtered.length === 0 && (
             <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-400">
-              No learning records.
+              No learning records match the current filters.
             </div>
           )}
           {!list.isLoading &&
@@ -233,7 +362,7 @@ export function Learning() {
               </dl>
 
               <div className="border-t border-slate-100 pt-4">
-                <p className="mb-2 text-xs font-medium text-slate-500">Submit feedback</p>
+                <p className="mb-2 text-xs font-medium text-slate-500">Did this recommendation work?</p>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"

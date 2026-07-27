@@ -53,9 +53,25 @@ export interface Recommendation {
   risk: string;
 }
 
+export interface IncidentSignal {
+  signal_id?: string;
+  type?: string;
+  severity?: string;
+  status?: string;
+  [key: string]: unknown;
+}
+
+export interface IncidentAsset {
+  asset_id?: string;
+  name?: string;
+  type?: string;
+  [key: string]: unknown;
+}
+
 export interface IncidentStats {
   total: number;
   new: number;
+  open?: number;
   investigating: number;
   resolved: number;
   closed: number;
