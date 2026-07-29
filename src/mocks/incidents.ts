@@ -37,59 +37,60 @@ export const MOCK_INCIDENTS: Incident[] = [
   },
   {
     id: 'INC-002',
-    title: 'SecD authentication failures on uspdc-nac01-02',
+    title: 'SecD authentication failures affecting cluster admin login',
     description:
-      'Repeated secd.unexpectedFailure events on node uspdc-nac01-02. ' +
-      'The Security Daemon is failing to authenticate requests for SVM uspdc_nas01 and uspdc_home01. ' +
-      'NFS/CIFS clients are intermittently losing access.',
-    severity: 'high',
+      'Repeated secd.unexpectedFailure EMS events indicate the cluster admin vserver is failing ' +
+      'LDAP/NIS authentication lookups. The current evidence points to cluster login impact and ' +
+      'certificate or name-service validation issues, not confirmed NAS client disruption.',
+    severity: 'medium',
     priority: 2,
     status: 'active',
     source: 'EMS / secd.unexpectedFailure',
     created_at: ago(22),
     updated_at: ago(8),
     assets: [
-      { id: 'b1', name: 'uspdc-nac01-02', type: 'node' },
-      { id: 'b2', name: 'uspdc_nas01', type: 'svm', details: '40 volumes affected' },
-      { id: 'b3', name: 'uspdc_home01', type: 'svm', details: '5 volumes affected' },
+      { id: 'b1', name: 'uspdc-admin', type: 'svm', details: 'Admin vserver authentication path' },
+      { id: 'b2', name: 'uspdc-nac01-01', type: 'node', details: 'Observed secd.unexpectedFailure entries' },
+      { id: 'b3', name: 'uspdc-nac01-02', type: 'node', details: 'Observed secd.unexpectedFailure entries' },
     ],
-    tags: ['authentication', 'secd', 'nfs', 'cifs'],
+    tags: ['authentication', 'secd', 'ldap', 'admin-vserver'],
     reasoning_id: 'RSN-002',
     timeline: [
       { timestamp: ago(22), event: 'Incident created', actor: 'system', detail: '2 secd.unexpectedFailure events in 5 minutes' },
       { timestamp: ago(20), event: 'AI analysis started', actor: 'ai' },
-      { timestamp: ago(16), event: 'Correlated with AD connectivity issue', actor: 'ai', detail: 'DNS resolution for AD domain intermittent' },
-      { timestamp: ago(14), event: 'Plan generated', actor: 'ai', detail: 'Recommended SVM security service restart' },
-      { timestamp: ago(10), event: 'Pending policy approval', actor: 'policy', detail: 'SVM restart requires manual approval' },
-      { timestamp: ago(8), event: 'Awaiting approval', actor: 'system', detail: 'Escalated to storage admin team' },
+      { timestamp: ago(16), event: 'Operator review added', actor: 'user', detail: 'Evidence suggests admin-vserver login scope, not confirmed NAS outage' },
+      { timestamp: ago(14), event: 'Plan generated', actor: 'ai', detail: 'Recommended validation of LDAP certificate and name-service path' },
+      { timestamp: ago(10), event: 'Policy check pending', actor: 'policy', detail: 'Any service restart requires storage admin confirmation' },
+      { timestamp: ago(8), event: 'Issue mitigated manually', actor: 'system', detail: 'Operator notes indicate the login issue was already corrected' },
     ],
   },
   {
     id: 'INC-003',
-    title: 'Cluster peer address mismatch on uspdc-nac01-02',
+    title: 'Cluster peer address mismatch warning requires verification',
     description:
-      'cpeer.addr.warn.host event: address 10.61.64.28 is not among the configured ' +
-      'intercluster LIF addresses for cluster peer. SnapMirror replication may be disrupted.',
-    severity: 'high',
+      'cpeer.addr.warn.host reports that peer address 10.61.64.28 is not in the current ' +
+      'remote intercluster address list. This is a peer-warning condition that merits review, ' +
+      'but it does not by itself prove that SnapMirror is fully broken.',
+    severity: 'medium',
     priority: 3,
     status: 'investigating',
     source: 'EMS / cpeer.addr.warn.host',
     created_at: ago(67),
     updated_at: ago(20),
     assets: [
-      { id: 'c1', name: 'uspdc-nac01-02', type: 'node' },
-      { id: 'c2', name: 'cluster_mgmt', type: 'lif', details: '10.26.248.121' },
+      { id: 'c1', name: 'remote-cluster-peer', type: 'cluster', details: 'Peer address record includes 10.61.64.28' },
+      { id: 'c2', name: 'intercluster-lif-set', type: 'lif', details: 'Verify at least one valid remote intercluster LIF remains reachable' },
     ],
     tags: ['snapmirror', 'peering', 'network', 'replication'],
     reasoning_id: 'RSN-003',
     timeline: [
       { timestamp: ago(67), event: 'Incident created', actor: 'system' },
       { timestamp: ago(64), event: 'AI analysis started', actor: 'ai' },
-      { timestamp: ago(58), event: 'Root cause: stale peer address', actor: 'ai', detail: 'Peer cluster IP changed after network reconfiguration' },
-      { timestamp: ago(50), event: 'Plan generated', actor: 'ai', detail: 'Update intercluster LIF and peer address' },
+      { timestamp: ago(58), event: 'Operator review added', actor: 'user', detail: 'Warning is real, but root cause and impact need softer wording' },
+      { timestamp: ago(50), event: 'Plan generated', actor: 'ai', detail: 'Verify active peer addresses before applying any corrective change' },
       { timestamp: ago(45), event: 'Policy check passed', actor: 'policy' },
       { timestamp: ago(40), event: 'Execution started', actor: 'system' },
-      { timestamp: ago(20), event: 'Execution completed', actor: 'system', detail: 'Peer address updated. SnapMirror replication resumed.' },
+      { timestamp: ago(20), event: 'Execution completed', actor: 'system', detail: 'Peer address warning cleared after peer record cleanup' },
     ],
   },
   {

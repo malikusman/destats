@@ -6,9 +6,11 @@
  *   return apiGet<AiReasoning>(`/api/scorpius/incidents/${id}/reasoning`);
  */
 import type { AiReasoning } from '../../types/scorpius';
+import { USE_MOCK_INCIDENTS } from '../../lib/data-source';
 import { getMockReasoning } from '../../mocks/aiReasoning';
 
 export async function fetchReasoningForIncident(incidentId: string): Promise<AiReasoning | null> {
+  if (!USE_MOCK_INCIDENTS) return null;
   await delay(350);
   return getMockReasoning(incidentId) ?? null;
 }

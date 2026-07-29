@@ -9,7 +9,7 @@ import {
   RotateCcw,
   SkipForward,
 } from 'lucide-react';
-import { DemoWorkflowPlaceholder } from '../components/DemoWorkflowPlaceholder';
+import { WorkflowUnavailable } from '../components/WorkflowUnavailable';
 import { useExecutionHistory, useExecutionStatus } from '../hooks/scorpius';
 import { isDemoIncidentId } from '../lib/incident-adapters';
 import { formatRelative, formatTimestamp } from '../lib/format';
@@ -132,7 +132,12 @@ export function Execution() {
   const { data: run, isLoading, isError } = useExecutionStatus(isDemo ? id : undefined);
 
   if (!isDemo) {
-    return <DemoWorkflowPlaceholder />;
+    return (
+      <WorkflowUnavailable
+        title="Execution tracking is not available yet"
+        description="Run tracking and step execution history require a live execution API. This will be enabled once remediation plans can be submitted and monitored from the platform."
+      />
+    );
   }
 
   if (isLoading) {

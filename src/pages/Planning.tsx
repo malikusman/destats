@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { Navigate, useParams } from 'react-router-dom';
 import {
   CheckCircle2,
   ChevronRight,
@@ -10,7 +10,6 @@ import {
   Star,
   XCircle,
 } from 'lucide-react';
-import { DemoWorkflowPlaceholder } from '../components/DemoWorkflowPlaceholder';
 import { usePlan } from '../hooks/scorpius';
 import { isDemoIncidentId } from '../lib/incident-adapters';
 import { formatTimestamp } from '../lib/format';
@@ -126,8 +125,8 @@ export function Planning() {
   const isDemo = isDemoIncidentId(id);
   const { data: plan, isLoading, isError } = usePlan(isDemo ? id : undefined);
 
-  if (!isDemo) {
-    return <DemoWorkflowPlaceholder />;
+  if (!isDemo && id) {
+    return <Navigate to={`/incidents/${id}/overview`} replace />;
   }
 
   if (isLoading) {
@@ -215,6 +214,17 @@ export function Planning() {
           ))}
         </div>
       </div>
+
+      {plan.operator_caveats && plan.operator_caveats.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+          <div className="mb-2 text-sm font-semibold text-amber-900">Operator Caveats</div>
+          <ul className="space-y-1 text-xs text-amber-800">
+            {plan.operator_caveats.map((caveat) => (
+              <li key={caveat}>- {caveat}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Outcome and rollback */}
       <div className="grid gap-3 sm:grid-cols-2">

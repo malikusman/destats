@@ -72,6 +72,8 @@ export interface EvidenceItem {
   summary: string;
   value?: string;
   relevance_score: number;    // 0–1
+  provenance_note?: string;
+  confidence_impact?: 'high' | 'medium' | 'low';
 }
 
 export interface KnowledgeReference {
@@ -81,6 +83,8 @@ export interface KnowledgeReference {
   excerpt: string;
   similarity_score: number;   // 0–1
   source_url?: string;
+  source_label?: string;
+  caveat?: string;
 }
 
 export interface RecommendedAction {
@@ -103,6 +107,7 @@ export interface AiReasoning {
   root_cause_hypothesis: string;
   confidence_score: number;   // 0–100
   risk_level: RiskLevel;
+  confidence_note?: string;
   evidence: EvidenceItem[];
   knowledge_references: KnowledgeReference[];
   recommended_actions: RecommendedAction[];
@@ -148,6 +153,7 @@ export interface PlanResult {
   policy_checks: PolicyCheck[];
   estimated_outcome: string;
   rollback_strategy: string;
+  operator_caveats?: string[];
   approved_by?: string;
   approved_at?: string;
 }

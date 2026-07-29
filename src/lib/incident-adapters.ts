@@ -4,9 +4,27 @@ import type {
   UnifiedIncidentListItem,
   UnifiedIncidentStats,
 } from '../types/unified-incident';
+import { USE_MOCK_INCIDENTS } from './data-source';
 
 export function isDemoIncidentId(id: string | undefined): boolean {
-  return !!id && id.startsWith('INC-');
+  return USE_MOCK_INCIDENTS && !!id && id.startsWith('INC-');
+}
+
+export function statsFromApi(apiStats: IncidentStats | null): UnifiedIncidentStats {
+  if (!apiStats) {
+    return { active: 0, critical: 0, high: 0, resolved: 0, total: 0 };
+  }
+
+  const active =
+    (apiStats.open ?? 0) + apiStats.new + (apiStats.investigating ?? 0);
+
+  return {
+    active,
+    critical: apiStats.critical ?? 0,
+    high: apiStats.high ?? 0,
+    resolved: (apiStats.resolved ?? 0) + (apiStats.closed ?? 0),
+    total: apiStats.total ?? 0,
+  };
 }
 
 export function demoIncidentToUnified(incident: Incident): UnifiedIncidentListItem {

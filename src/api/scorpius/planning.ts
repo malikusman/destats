@@ -6,9 +6,11 @@
  *   return apiGet<PlanResult>(`/api/scorpius/incidents/${id}/plan`);
  */
 import type { PlanResult } from '../../types/scorpius';
+import { USE_MOCK_INCIDENTS } from '../../lib/data-source';
 import { getMockPlan } from '../../mocks/planning';
 
 export async function fetchPlanForIncident(incidentId: string): Promise<PlanResult | null> {
+  if (!USE_MOCK_INCIDENTS) return null;
   await delay(300);
   return getMockPlan(incidentId) ?? null;
 }

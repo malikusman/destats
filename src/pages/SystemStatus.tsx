@@ -132,7 +132,7 @@ export function SystemStatus() {
         <div>
           <h1 className="text-xl font-bold text-slate-900">System Status</h1>
           <p className="mt-0.5 text-sm text-slate-500">
-            Health of all Scorpius platform services
+            Live health of ingestion and platform APIs (no simulated services)
           </p>
         </div>
         <button

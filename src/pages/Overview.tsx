@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import {
   Activity,
@@ -47,7 +47,13 @@ function ratioTone(up: number, total: number): StatusTone {
   return up === total ? 'ok' : 'crit';
 }
 
+interface DegradedReason {
+  label: string;
+  to: string;
+}
+
 export function Overview() {
+  const navigate = useNavigate();
   const nodes = useNodesSummary();
   const aggregates = useAggregatesSummary();
   const volumes = useVolumesSummary();
@@ -74,7 +80,45 @@ export function Overview() {
     nodesUp === nodesTotal &&
     aggsOnline === aggsTotal &&
     lifsUp === lifsTotal &&
-    volsOnline === volsTotal;
+    volsOnline === volsTotal &&
+    openIssues === 0;
+
+  const degradedReasons = useMemo((): DegradedReason[] => {
+    const reasons: DegradedReason[] = [];
+    if (nodesTotal > 0 && nodesUp < nodesTotal) {
+      reasons.push({
+        label: `${nodesTotal - nodesUp} node(s) not up`,
+        to: '/nodes',
+      });
+    }
+    if (aggsTotal > 0 && aggsOnline < aggsTotal) {
+      reasons.push({
+        label: `${aggsTotal - aggsOnline} aggregate(s) offline`,
+        to: '/aggregates',
+      });
+    }
+    if (lifsTotal > 0 && lifsUp < lifsTotal) {
+      reasons.push({
+        label: `${lifsTotal - lifsUp} interface(s) down`,
+        to: '/interfaces',
+      });
+    }
+    if (volsTotal > 0 && volsOnline < volsTotal) {
+      reasons.push({
+        label: `${volsTotal - volsOnline} volume(s) offline`,
+        to: '/capacity',
+      });
+    }
+    if (openIssues > 0) {
+      reasons.push({
+        label: `${openIssues} EMS error/alert event(s)`,
+        to: '/events?severity=emergency,alert,error',
+      });
+    }
+    return reasons;
+  }, [nodesTotal, nodesUp, aggsTotal, aggsOnline, lifsTotal, lifsUp, volsTotal, volsOnline, openIssues]);
+
+  const primaryDegraded = degradedReasons[0];
 
   // --- Chart data ----------------------------------------------------------
   const capacityDonut = useMemo(() => {
@@ -113,7 +157,9 @@ export function Overview() {
           tone={nodes.isPending ? 'neutral' : allHealthy ? 'ok' : 'crit'}
           icon={Gauge}
           loading={nodes.isPending}
-          hint="Overall infrastructure state"
+          sublabel={!allHealthy && primaryDegraded ? primaryDegraded.label : undefined}
+          to={!allHealthy && primaryDegraded ? primaryDegraded.to : undefined}
+          hint={allHealthy ? 'All subsystems and EMS within normal range' : undefined}
         />
         <KpiTile
           label="Nodes Up"
@@ -121,6 +167,7 @@ export function Overview() {
           tone={ratioTone(nodesUp, nodesTotal)}
           icon={Server}
           loading={nodes.isPending}
+          to={nodesTotal > 0 && nodesUp < nodesTotal ? '/nodes' : undefined}
           hint="Node availability ratio"
         />
         <KpiTile
@@ -129,6 +176,7 @@ export function Overview() {
           tone={ratioTone(aggsOnline, aggsTotal)}
           icon={HardDrive}
           loading={aggregates.isPending}
+          to={aggsTotal > 0 && aggsOnline < aggsTotal ? '/aggregates' : undefined}
           hint="Aggregate online health"
         />
         <KpiTile
@@ -137,6 +185,7 @@ export function Overview() {
           tone={ratioTone(lifsUp, lifsTotal)}
           icon={Network}
           loading={interfaces.isPending}
+          to={lifsTotal > 0 && lifsUp < lifsTotal ? '/interfaces' : undefined}
           hint="Network interface health"
         />
         <KpiTile
@@ -175,6 +224,32 @@ export function Overview() {
           to="/events?severity=emergency,alert,error"
         />
       </div>
+
+      {!allHealthy && degradedReasons.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 shadow-sm">
+          <p className="font-medium">Cluster degraded — investigate underlying issues</p>
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {degradedReasons.map((reason) => (
+              <li key={reason.to}>
+                <Link
+                  to={reason.to}
+                  className="inline-flex items-center rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-medium text-amber-900 transition-colors hover:border-amber-300 hover:text-blue-700"
+                >
+                  {reason.label} →
+                </Link>
+              </li>
+            ))}
+            <li>
+              <Link
+                to="/incidents"
+                className="inline-flex items-center rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-medium text-amber-900 transition-colors hover:border-amber-300 hover:text-blue-700"
+              >
+                View incidents →
+              </Link>
+            </li>
+          </ul>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Capacity donut */}
@@ -231,7 +306,7 @@ export function Overview() {
         {/* Aggregate fill bars */}
         <ChartCard
           title="Aggregate Fill"
-          subtitle="Used % per aggregate vs 96% full threshold"
+          subtitle="Used % per aggregate vs each aggregate's full threshold"
         >
           {aggregates.isPending ? (
             <LoadingSkeleton rows={6} />
@@ -281,6 +356,13 @@ export function Overview() {
                       outerRadius="88%"
                       paddingAngle={2}
                       strokeWidth={0}
+                      style={{ cursor: 'pointer' }}
+                      onClick={(_, index) => {
+                        const entry = severityDonut[index];
+                        if (entry) {
+                          navigate(`/events?severity=${encodeURIComponent(entry.name)}`);
+                        }
+                      }}
                     >
                       {severityDonut.map((entry) => (
                         <Cell key={entry.name} fill={entry.color} />
@@ -292,12 +374,17 @@ export function Overview() {
               </div>
               <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
                 {severityDonut.map((entry) => (
-                  <span key={entry.name} className="flex items-center gap-1">
+                  <Link
+                    key={entry.name}
+                    to={`/events?severity=${encodeURIComponent(entry.name)}`}
+                    className="flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors hover:bg-slate-100 hover:text-blue-700"
+                  >
                     <span className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} aria-hidden />
                     {entry.name} ({formatNumber(entry.value)})
-                  </span>
+                  </Link>
                 ))}
               </div>
+              <p className="mt-2 text-center text-[10px] text-slate-400">Click a segment or label to filter events</p>
             </>
           )}
         </ChartCard>
@@ -327,16 +414,21 @@ export function Overview() {
           ) : (
             <ul className="divide-y divide-slate-100">
               {recentErrors.map((event) => (
-                <li key={`${event.node?.name}-${event.index}`} className="flex items-start gap-3 py-2">
-                  <SeverityBadge severity={event.message?.severity} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-mono text-xs text-slate-700" title={event.log_message}>
-                      {event.log_message ?? event.message?.name ?? '—'}
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-slate-400">
-                      {event.node?.name ?? 'unknown node'} · {formatRelative(event.time)}
-                    </p>
-                  </div>
+                <li key={`${event.node?.name}-${event.index}`}>
+                  <Link
+                    to="/events?severity=emergency,alert,error"
+                    className="flex items-start gap-3 py-2 transition-colors hover:bg-slate-50"
+                  >
+                    <SeverityBadge severity={event.message?.severity} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-mono text-xs text-slate-700" title={event.log_message}>
+                        {event.log_message ?? event.message?.name ?? '—'}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-slate-400">
+                        {event.node?.name ?? 'unknown node'} · {formatRelative(event.time)}
+                      </p>
+                    </div>
+                  </Link>
                 </li>
               ))}
             </ul>

@@ -4,14 +4,14 @@ import { RefreshCw } from 'lucide-react';
 import {
   useAggregatesSummary,
   useEmsSummary,
+  useNodes,
   useNodesSummary,
   useVolumesSummary,
 } from '../hooks/queries';
 import { REFRESH_OPTIONS, useRefreshInterval } from '../hooks/RefreshContext';
+import { deriveClusterIdentity } from '../lib/cluster-identity';
 import { formatAgo } from '../lib/format';
 import type { StatusTone } from '../lib/status';
-
-const CLUSTER_NAME = 'uspdc-nac01';
 
 function useNow(intervalMs = 1000): number {
   const [now, setNow] = useState(() => Date.now());
@@ -39,10 +39,20 @@ export function TopBar() {
   const queryClient = useQueryClient();
   const { optionIndex, setOptionIndex } = useRefreshInterval();
   const nodes = useNodesSummary();
+  const nodesDetail = useNodes();
   const aggregates = useAggregatesSummary();
   const volumes = useVolumesSummary();
   const ems = useEmsSummary();
   useNow();
+
+  const identity = deriveClusterIdentity(nodesDetail.data ?? []);
+  const clusterLabel = identity.clusterName ?? (nodesDetail.isPending ? '…' : 'Cluster');
+
+  useEffect(() => {
+    document.title = identity.clusterName
+      ? `${identity.clusterName} · NetApp Storage Dashboard`
+      : 'NetApp Storage Dashboard';
+  }, [identity.clusterName]);
 
   const lastUpdated = Math.max(
     nodes.dataUpdatedAt,
@@ -84,7 +94,7 @@ export function TopBar() {
   return (
     <header className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur md:px-6">
       <div className="flex items-center gap-3">
-        <h1 className="font-mono text-base font-semibold text-slate-800">{CLUSTER_NAME}</h1>
+        <h1 className="font-mono text-base font-semibold text-slate-800">{clusterLabel}</h1>
         <span
           className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${pillClass[health.tone]}`}
           role="status"

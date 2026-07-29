@@ -1,5 +1,6 @@
 services:
   mock-api:
+    profiles: ["demo"]
     image: node:20-alpine
     working_dir: /app
     volumes:
@@ -16,9 +17,8 @@ services:
       # must be able to route to this address — VPN / Tailscale / WireGuard.
       - API_TARGET=${API_TARGET:-http://10.0.65.40:8080}
       # Platform APIs (incidents, use cases, knowledge, learning, evaluation).
-      # Default: TDK gateway (VPN required). Override to http://mock-api:3090
-      # only for local incident mock-api (incidents/health only).
+      # Default: TDK platform gateway (VPN required).
+      # Override for direct incident service (deferred): http://10.0.65.19:8003
+      # Local mock only: docker compose --profile demo up, INCIDENT_API_TARGET=http://mock-api:3090
       - INCIDENT_API_TARGET=${INCIDENT_API_TARGET:-http://10.0.65.19:8088/incident-api}
-    depends_on:
-      - mock-api
     restart: unless-stopped

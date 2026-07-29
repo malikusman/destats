@@ -11,7 +11,7 @@ export interface IncidentListItem {
   first_seen: string;
   last_seen: string;
   alert_count: number;
-  correlation_key: string;
+  correlation_key?: string;
 }
 
 export interface IncidentDetail {

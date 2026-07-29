@@ -131,9 +131,32 @@ export function IncidentPlatformPanels({
           <BookOpen className="h-4 w-4 text-blue-500" />
           Knowledge context
         </div>
+        <p className="mb-3 text-xs text-slate-500">
+          Retrieved items are semantically similar knowledge records. They provide operator context
+          and runbook hints, but they are not treated as proof of the incident root cause.
+        </p>
         {retrieve.isLoading && <p className="text-sm text-slate-400">Retrieving…</p>}
         {retrieve.isError && (
           <p className="text-sm text-amber-700">Knowledge retrieval is currently unavailable.</p>
+        )}
+        {retrieve.data?.semantic_search && (
+          <div className="mb-3 flex flex-wrap gap-2 text-[11px] text-slate-500">
+            {retrieve.data.semantic_search.collection_name && (
+              <span className="rounded-full bg-slate-100 px-2 py-0.5">
+                Collection {retrieve.data.semantic_search.collection_name}
+              </span>
+            )}
+            {retrieve.data.semantic_search.provider && (
+              <span className="rounded-full bg-slate-100 px-2 py-0.5">
+                Provider {retrieve.data.semantic_search.provider}
+              </span>
+            )}
+            {retrieve.data.semantic_search.model && (
+              <span className="rounded-full bg-slate-100 px-2 py-0.5">
+                Model {retrieve.data.semantic_search.model}
+              </span>
+            )}
+          </div>
         )}
         {!retrieve.isLoading && knowledgeRecords.length === 0 && (
           <p className="text-sm text-slate-400">No knowledge matches were returned for this incident.</p>
@@ -152,6 +175,18 @@ export function IncidentPlatformPanels({
                   </span>
                 )}
               </div>
+              <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-slate-500">
+                {item.document_type && (
+                  <span className="rounded-full bg-white px-2 py-0.5 ring-1 ring-inset ring-slate-200">
+                    {item.document_type}
+                  </span>
+                )}
+                {item.source && (
+                  <span className="rounded-full bg-white px-2 py-0.5 ring-1 ring-inset ring-slate-200">
+                    {item.source}
+                  </span>
+                )}
+              </div>
               <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{item.content}</p>
             </div>
           ))}
@@ -163,6 +198,10 @@ export function IncidentPlatformPanels({
           <CheckCircle2 className="h-4 w-4 text-emerald-500" />
           Recommendations (learning-adjusted)
         </div>
+        <p className="mb-3 text-xs text-slate-500">
+          Recommendation ranks combine incident-service suggestions with historical learning scores.
+          Higher confidence means stronger ranking support, not guaranteed correctness.
+        </p>
         {recommendationsUnavailable ? (
           <p className="text-sm text-amber-700">
             Recommendations are currently unavailable from the Incident API.
@@ -223,6 +262,10 @@ export function IncidentPlatformPanels({
           <BrainCircuit className="h-4 w-4 text-violet-500" />
           Learning for this incident
         </div>
+        <p className="mb-3 text-xs text-slate-500">
+          These records show prior operator feedback and evaluation history attached to this incident
+          ID. They are provenance for ranking adjustments, not direct evidence of the current fault.
+        </p>
         {learning.isLoading && <p className="text-sm text-slate-400">Loading…</p>}
         {learning.isError && (
           <p className="text-sm text-amber-700">Learning history is currently unavailable.</p>

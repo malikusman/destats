@@ -82,16 +82,27 @@ function SeverityKpiButton({
 export function Events() {
   const [searchParams, setSearchParams] = useSearchParams();
   const severityParam = searchParams.get('severity');
-  const mode: Mode =
-    severityParam != null && severityParam !== ''
-      ? 'all'
-      : searchParams.get('mode') === 'errors'
-        ? 'errors'
-        : 'all';
+  const explicitMode = searchParams.get('mode');
+  const severityFilter = useMemo(() => parseSeveritySet(severityParam), [severityParam]);
+
+  const mode: Mode = useMemo(() => {
+    if (explicitMode === 'all') return 'all';
+    if (explicitMode === 'errors') return 'errors';
+    if (severityParam) {
+      const onlyActionable =
+        severityFilter.size > 0 &&
+        Array.from(severityFilter).every((severity) =>
+          (ACTIONABLE_SEVERITIES as readonly string[]).includes(severity),
+        );
+      // Drill-down to notice/debug/informational needs the full event stream.
+      if (severityFilter.size > 0 && !onlyActionable) return 'all';
+    }
+    return 'errors';
+  }, [explicitMode, severityParam, severityFilter]);
+
   const hideNoise = searchParams.get('noise') !== '1';
   const search = searchParams.get('q') ?? '';
   const nodeFilter = searchParams.get('node') ?? 'all';
-  const severityFilter = useMemo(() => parseSeveritySet(severityParam), [severityParam]);
   const [filtersOpen, setFiltersOpen] = useState(() => Boolean(severityParam));
 
   const emsSummary = useEmsSummary();
@@ -99,12 +110,7 @@ export function Events() {
   const allEvents = useEmsEvents();
   const errorEvents = useEmsErrors(eventsExamined);
 
-  const actionableOnlyFilter =
-    severityFilter.size > 0 &&
-    Array.from(severityFilter).every((severity) =>
-      (ACTIONABLE_SEVERITIES as readonly string[]).includes(severity),
-    );
-  const useErrorsFeed = mode === 'errors' || actionableOnlyFilter;
+  const useErrorsFeed = mode === 'errors';
 
   function patchParams(patch: Record<string, string | null>) {
     setSearchParams(
@@ -124,11 +130,8 @@ export function Events() {
     setSearchParams(
       (prev) => {
         const p = new URLSearchParams(prev);
-        if (next === 'all') p.delete('mode');
-        else {
-          p.set('mode', next);
-          p.delete('severity');
-        }
+        if (next === 'errors') p.delete('mode');
+        else p.set('mode', 'all');
         return p;
       },
       { replace: true },
@@ -306,7 +309,7 @@ export function Events() {
       <div>
         <h1 className="text-xl font-bold text-slate-900">Events (EMS)</h1>
         <p className="mt-0.5 text-sm text-slate-500">
-          Cluster event stream with severity filters for errors, alerts, and emergencies.
+          Actionable EMS events (errors, alerts, emergencies) by default. Switch to all events for the full stream.
         </p>
       </div>
 

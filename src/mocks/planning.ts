@@ -120,25 +120,27 @@ export const MOCK_PLANS: Record<string, PlanResult> = {
     candidate_plans: [
       {
         id: 'CPLAN-002-A',
-        name: 'DNS Update + SecD Restart',
-        description: 'Update DNS configuration to use backup server, then restart Security Daemon.',
+        name: 'Validate auth path, then restart only if still needed',
+        description:
+          'Collect confirming evidence from secd.log, LDAP reachability, and certificate identity ' +
+          'before considering a SecD restart.',
         steps: [
-          'Update DNS on uspdc-nac01-02: vserver services dns modify -vserver uspdc_nas01 -domains invensense.com -name-servers <backup-dns>',
-          'Test DNS resolution: vserver services dns check -vserver uspdc_nas01',
-          'Restart SecD: vserver services name-service cache flush -vserver uspdc_nas01',
-          'Verify authentication restored',
+          'Inspect secd.log for TLS hostname mismatch, LDAP reachability, and RESULT_ERROR_SECD_NO_SERVER_AVAILABLE patterns',
+          'Validate admin-vserver name-service configuration and test LDAP/Kerberos connectivity',
+          'Correct the certificate or external directory path issue if confirmed',
+          'Restart SecD only if the authentication path is still unhealthy after evidence collection',
         ],
-        estimated_duration_minutes: 8,
-        risk_score: 20,
-        success_probability: 89,
+        estimated_duration_minutes: 12,
+        risk_score: 24,
+        success_probability: 68,
         is_selected: true,
       },
       {
         id: 'CPLAN-002-B',
         name: 'SecD Restart Only',
-        description: 'Restart Security Daemon without fixing DNS. Likely to recur.',
+        description: 'Temporary symptom relief only; root cause would remain unknown.',
         steps: [
-          'Restart SecD on affected SVMs',
+          'Restart SecD on the affected auth path',
           'Monitor for recurrence',
         ],
         estimated_duration_minutes: 3,
@@ -151,14 +153,14 @@ export const MOCK_PLANS: Record<string, PlanResult> = {
       {
         step: 1,
         description: 'Root cause analysis',
-        decision: 'DNS misconfiguration identified as primary cause',
-        rationale: 'DNS change preceded first secd failure by 3 minutes; backup DNS is available',
+        decision: 'Certificate/name-service failure suspected, not proven',
+        rationale: 'The supplied secd.log shows TLS/CN mismatch and no-server-available failures, but does not prove a DNS-only root cause',
       },
       {
         step: 2,
         description: 'Policy check',
         decision: 'Pending approval',
-        rationale: 'SecD restart on production SVM requires storage admin approval',
+        rationale: 'Any restart on a production authentication path requires storage admin approval after evidence collection',
       },
     ],
     policy_checks: [
@@ -170,11 +172,15 @@ export const MOCK_PLANS: Record<string, PlanResult> = {
       },
     ],
     estimated_outcome:
-      'DNS update will restore AD connectivity. SecD restart will clear the failed state. ' +
-      'NFS/CIFS clients should reconnect within 30 seconds.',
+      'If the certificate or name-service issue is corrected, cluster admin authentication should recover. ' +
+      'The plan avoids assuming NAS client impact without stronger evidence.',
     rollback_strategy:
-      'Revert DNS to original configuration if backup DNS also fails. ' +
-      'Contact network team to restore primary DNS server.',
+      'Do not restart services until evidence has been captured. If a restart is attempted, preserve the ' +
+      'log bundle first and revert any configuration edits that do not improve authentication.',
+    operator_caveats: [
+      'Reviewer notes the issue was already fixed and only affected cluster login.',
+      'Treat any claim of NAS client outage as unverified until cluster evidence shows it directly.',
+    ],
   },
 
   'INC-003': {
@@ -186,16 +192,17 @@ export const MOCK_PLANS: Record<string, PlanResult> = {
       {
         id: 'CPLAN-003-A',
         name: 'Update Cluster Peer Address',
-        description: 'Correct the stale intercluster peer address to restore SnapMirror replication.',
+        description:
+          'Verify peer health first, then remove or correct the stale peer address record if it is no longer valid.',
         steps: [
           'Identify correct peer IP: cluster peer show -instance on remote cluster',
           'Update peer address: cluster peer modify -peer-cluster <name> -peer-addrs <new-ip>',
           'Verify connectivity: cluster peer ping -originating-node local -destination-cluster <peer>',
-          'Resync lagged SnapMirror relationships: snapmirror resync -destination-path <vserver:volume>',
+          'Only resync SnapMirror relationships if they remain unhealthy or lack schedule-based recovery',
         ],
         estimated_duration_minutes: 8,
         risk_score: 8,
-        success_probability: 99,
+        success_probability: 82,
         is_selected: true,
       },
     ],
@@ -204,7 +211,7 @@ export const MOCK_PLANS: Record<string, PlanResult> = {
         step: 1,
         description: 'Confirmed correct peer IP from remote cluster',
         decision: 'Peer IP is 10.61.64.30 (updated from 10.61.64.28)',
-        rationale: 'Remote cluster reconfigured intercluster LIF during network maintenance',
+        rationale: 'Remote cluster reconfigured an intercluster LIF during network maintenance, but surviving LIFs may still allow replication',
       },
     ],
     policy_checks: [
@@ -215,8 +222,13 @@ export const MOCK_PLANS: Record<string, PlanResult> = {
         reason: 'Peer address update is a corrective action; does not change network topology',
       },
     ],
-    estimated_outcome: '8 SnapMirror relationships will resume replication after peer address update.',
+    estimated_outcome:
+      'The stale peer warning should clear after the record is corrected. SnapMirror health should then be verified rather than assumed.',
     rollback_strategy: 'Revert peer address to previous value if new IP is incorrect.',
+    operator_caveats: [
+      'Reviewer notes the event is a warning, not proof that replication fully stopped.',
+      'Do not assume a manual resync is required if scheduled replication is still functioning.',
+    ],
     approved_by: 'storage-admin-01',
     approved_at: new Date(Date.now() - 45 * 60_000).toISOString(),
   },

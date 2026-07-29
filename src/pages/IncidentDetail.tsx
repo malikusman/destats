@@ -6,6 +6,7 @@ import {
   GitBranch,
   LayoutList,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useIncidentDetail } from '../hooks/incident-service';
 import { useIncident } from '../hooks/scorpius';
 import { formatRelative } from '../lib/format';
@@ -27,6 +28,15 @@ const DEMO_STATUS_BADGE: Record<string, string> = {
   resolved: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
   suppressed: 'bg-slate-100 text-slate-500 ring-slate-200',
 };
+
+interface IncidentSubRoute {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  end?: boolean;
+  workflow: boolean;
+  unavailableTitle?: string;
+}
 
 export function IncidentDetail() {
   const { id } = useParams<{ id: string }>();
@@ -65,11 +75,25 @@ export function IncidentDetail() {
     );
   }
 
-  const subRoutes = [
-    { to: 'overview', label: 'Overview', icon: LayoutList, end: true, demoOnly: false },
-    { to: 'reasoning', label: 'AI Reasoning', icon: BrainCircuit, demoOnly: true },
-    { to: 'planning', label: 'Planning', icon: GitBranch, demoOnly: true },
+  const subRoutes: IncidentSubRoute[] = [
+    { to: 'overview', label: 'Overview', icon: LayoutList, end: true, workflow: false },
+    {
+      to: 'reasoning',
+      label: 'AI Reasoning',
+      icon: BrainCircuit,
+      workflow: true,
+      unavailableTitle: 'AI reasoning is not available for live incidents yet',
+    },
+    {
+      to: 'planning',
+      label: 'Planning',
+      icon: GitBranch,
+      workflow: true,
+      unavailableTitle: 'Remediation planning is not available for live incidents yet',
+    },
   ];
+
+  const workflowAvailable = isDemo;
 
   return (
     <div className="space-y-6">
@@ -150,8 +174,8 @@ export function IncidentDetail() {
 
       <div className="min-w-0">
         <div className="grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm sm:flex sm:flex-wrap">
-          {subRoutes.map(({ to, label, icon: Icon, end, demoOnly }) => {
-            const disabled = demoOnly && !isDemo;
+          {subRoutes.map(({ to, label, icon: Icon, end, workflow, unavailableTitle }) => {
+            const disabled = workflow && !workflowAvailable;
             const tabClass = (isActive: boolean) =>
               `flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-sm font-medium transition-colors sm:justify-start sm:gap-2 sm:px-3 ${
                 disabled
@@ -166,7 +190,8 @@ export function IncidentDetail() {
                 <span
                   key={to}
                   className={tabClass(false)}
-                  title="This workflow tab is not available for this incident"
+                  title={unavailableTitle}
+                  aria-disabled="true"
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0" />
                   <span className="min-w-0 truncate">{label}</span>

@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { Navigate, useParams } from 'react-router-dom';
 import {
   BookOpen,
   BrainCircuit,
@@ -11,11 +11,6 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { useState } from 'react';
-import { IncidentPlatformPanels } from '../components/IncidentPlatformPanels';
-import {
-  useIncidentDetail,
-  useIncidentRecommendations,
-} from '../hooks/incident-service';
 import { useAiReasoning } from '../hooks/scorpius';
 import { isDemoIncidentId } from '../lib/incident-adapters';
 import { formatTimestamp } from '../lib/format';
@@ -51,6 +46,21 @@ function ConfidenceGauge({ score }: { score: number }) {
 }
 
 function EvidenceCard({ item }: { item: EvidenceItem }) {
+  const provenanceLabel =
+    item.type === 'historical'
+      ? 'Correlative context'
+      : item.type === 'log'
+        ? 'Observed diagnostic evidence'
+        : item.type === 'event'
+          ? 'Observed EMS evidence'
+          : 'Observed telemetry';
+  const confidenceTone =
+    item.confidence_impact === 'high'
+      ? 'text-emerald-700 bg-emerald-50'
+      : item.confidence_impact === 'medium'
+        ? 'text-amber-700 bg-amber-50'
+        : 'text-slate-600 bg-slate-100';
+
   return (
     <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
       <div className="mt-0.5 shrink-0">{EVIDENCE_ICON[item.type]}</div>
@@ -66,11 +76,24 @@ function EvidenceCard({ item }: { item: EvidenceItem }) {
             {Math.round(item.relevance_score * 100)}% relevant
           </span>
         </div>
+        <div className="mt-1 flex flex-wrap gap-2">
+          <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-medium text-slate-600 ring-1 ring-inset ring-slate-200">
+            {provenanceLabel}
+          </span>
+          {item.confidence_impact && (
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${confidenceTone}`}>
+              {item.confidence_impact} confidence impact
+            </span>
+          )}
+        </div>
         <p className="mt-1 text-sm text-slate-700">{item.summary}</p>
         {item.value && (
           <span className="mt-1 inline-block font-mono text-xs font-semibold text-blue-700">
             {item.value}
           </span>
+        )}
+        {item.provenance_note && (
+          <p className="mt-2 text-[11px] text-slate-500">{item.provenance_note}</p>
         )}
       </div>
     </div>
@@ -105,6 +128,15 @@ function KnowledgeRefCard({ knowledgeRef: kref }: { knowledgeRef: KnowledgeRefer
           <div className="text-[10px] text-slate-400">match</div>
         </div>
       </div>
+      <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500">
+        {kref.source_label && (
+          <span className="rounded-full bg-slate-100 px-2 py-0.5">{kref.source_label}</span>
+        )}
+        <span className="rounded-full bg-slate-100 px-2 py-0.5">
+          Similarity ranks related references, not root-cause certainty
+        </span>
+      </div>
+      {kref.caveat && <p className="mt-2 text-[11px] text-amber-700">{kref.caveat}</p>}
     </div>
   );
 }
@@ -141,44 +173,6 @@ function ActionCard({ action, rank }: { action: RecommendedAction; rank: number 
   );
 }
 
-function LiveAiReasoning({ id }: { id: string }) {
-  const detail = useIncidentDetail(id);
-  const recommendations = useIncidentRecommendations(id);
-
-  if (detail.isLoading) {
-    return (
-      <div className="space-y-3">
-        {[1, 2, 3].map((n) => (
-          <div key={n} className="h-24 animate-pulse rounded-xl bg-slate-100" />
-        ))}
-      </div>
-    );
-  }
-
-  if (detail.isError || !detail.data) {
-    return (
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-400">
-        Unable to load incident reasoning panels.
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3 text-sm text-violet-900">
-        Knowledge retrieval, learning-adjusted recommendations, feedback, and evaluation for this
-        incident.
-      </div>
-      <IncidentPlatformPanels
-        incidentId={id}
-        title={detail.data.title}
-        description={detail.data.description}
-        recommendations={recommendations.data ?? []}
-      />
-    </div>
-  );
-}
-
 export function AiReasoning() {
   const { id } = useParams<{ id: string }>();
   const isDemo = isDemoIncidentId(id);
@@ -186,7 +180,7 @@ export function AiReasoning() {
   const [showTrace, setShowTrace] = useState(false);
 
   if (!isDemo && id) {
-    return <LiveAiReasoning id={id} />;
+    return <Navigate to={`/incidents/${id}/overview`} replace />;
   }
 
   if (isLoading) {
@@ -216,23 +210,28 @@ export function AiReasoning() {
             <ConfidenceGauge score={reasoning.confidence_score} />
           </div>
           <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <BrainCircuit className="h-4 w-4 shrink-0 text-violet-500" />
-            <span className="text-sm font-semibold text-slate-700">AI Analysis Summary</span>
-            <span
-              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset capitalize ${RISK_BG[reasoning.risk_level]}`}
-            >
-              {reasoning.risk_level} risk
-            </span>
-          </div>
-          <p className="mt-2 text-sm leading-relaxed text-slate-700">{reasoning.incident_summary}</p>
-          <div className="mt-3 rounded-lg bg-violet-50 p-3">
-            <p className="mb-1 text-xs font-semibold text-violet-700">Root Cause Hypothesis</p>
-            <p className="text-sm text-violet-900">{reasoning.root_cause_hypothesis}</p>
-          </div>
-          <p className="mt-2 text-[11px] text-slate-400">
-            {reasoning.model_version} · Generated {formatTimestamp(reasoning.generated_at)}
-          </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <BrainCircuit className="h-4 w-4 shrink-0 text-violet-500" />
+              <span className="text-sm font-semibold text-slate-700">AI Analysis Summary</span>
+              <span
+                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset capitalize ${RISK_BG[reasoning.risk_level]}`}
+              >
+                {reasoning.risk_level} risk
+              </span>
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-slate-700">{reasoning.incident_summary}</p>
+            {reasoning.confidence_note && (
+              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                {reasoning.confidence_note}
+              </div>
+            )}
+            <div className="mt-3 rounded-lg bg-violet-50 p-3">
+              <p className="mb-1 text-xs font-semibold text-violet-700">Root Cause Hypothesis</p>
+              <p className="text-sm text-violet-900">{reasoning.root_cause_hypothesis}</p>
+            </div>
+            <p className="mt-2 text-[11px] text-slate-400">
+              {reasoning.model_version} · Generated {formatTimestamp(reasoning.generated_at)}
+            </p>
           </div>
         </div>
       </div>
@@ -246,6 +245,10 @@ export function AiReasoning() {
             {reasoning.evidence.length} items
           </span>
         </div>
+        <p className="mb-3 text-xs text-slate-500">
+          Observed EMS and diagnostic evidence is separated from correlative or human-supplied
+          context so operators can judge how much of the analysis is grounded.
+        </p>
         <div className="space-y-2">
           {reasoning.evidence.map((e) => (
             <EvidenceCard key={e.id} item={e} />
@@ -262,6 +265,10 @@ export function AiReasoning() {
             {reasoning.knowledge_references.length} docs
           </span>
         </div>
+        <p className="mb-3 text-xs text-slate-500">
+          These references are semantic matches that may help investigation. They are not proof that
+          the suggested root cause is correct.
+        </p>
         <div className="space-y-2">
           {reasoning.knowledge_references.map((ref) => (
             <KnowledgeRefCard key={ref.id} knowledgeRef={ref} />

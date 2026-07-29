@@ -16,6 +16,8 @@ import {
   Siren,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { useNodes } from '../hooks/queries';
+import { deriveClusterIdentity } from '../lib/cluster-identity';
 
 interface NavItem {
   to: string;
@@ -69,6 +71,10 @@ function NavSection({ items }: { items: NavItem[] }) {
 }
 
 export function Sidebar() {
+  const nodes = useNodes();
+  const identity = deriveClusterIdentity(nodes.data ?? []);
+  const clusterLabel = identity.clusterName ?? (nodes.isPending ? '…' : '—');
+
   return (
     <aside className="flex w-full shrink-0 flex-row gap-1 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2 md:h-screen md:w-56 md:flex-col md:overflow-x-visible md:border-b-0 md:border-r md:px-3 md:py-4 md:sticky md:top-0">
       <div className="hidden items-center gap-2 px-2 pb-4 md:flex">
@@ -77,11 +83,10 @@ export function Sidebar() {
         </div>
         <div>
           <div className="text-sm font-semibold text-slate-800">NetApp Monitor</div>
-          <div className="font-mono text-[11px] text-slate-400">uspdc-nac01</div>
+          <div className="font-mono text-[11px] text-slate-400">{clusterLabel}</div>
         </div>
       </div>
 
-      {/* NetApp section */}
       <nav aria-label="NetApp navigation" className="flex flex-row gap-1 md:flex-col">
         <div className="hidden px-2 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 md:block">
           NetApp Storage
@@ -89,7 +94,6 @@ export function Sidebar() {
         <NavSection items={NETAPP_NAV} />
       </nav>
 
-      {/* Scorpius Platform section */}
       <nav aria-label="Scorpius navigation" className="flex flex-row gap-1 md:mt-4 md:flex-col">
         <div className="hidden items-center gap-1.5 px-2 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 md:flex">
           <BrainCircuit className="h-3 w-3" />
@@ -109,10 +113,10 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="mt-auto hidden px-2 pt-4 text-[11px] text-slate-400 md:block">
-        Hillsboro, OR DC
-        <br />
-        Scorpius v2.1.4
+      <div className="mt-auto hidden space-y-0.5 px-2 pt-4 text-[11px] text-slate-400 md:block">
+        {identity.location && <div>{identity.location}</div>}
+        {identity.ontapVersion && <div className="font-mono">ONTAP {identity.ontapVersion}</div>}
+        {!identity.location && !identity.ontapVersion && nodes.isPending && <div>Loading…</div>}
       </div>
     </aside>
   );

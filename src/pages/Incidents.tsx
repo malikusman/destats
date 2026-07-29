@@ -3,7 +3,6 @@ import { Link, useSearchParams } from 'react-router-dom';
 import {
   AlertCircle,
   AlertTriangle,
-  BrainCircuit,
   ChevronRight,
   Clock,
   Info,
@@ -46,7 +45,6 @@ function isResolvedStatus(status: string): boolean {
 
 function IncidentRow({ incident }: { incident: UnifiedIncidentListItem }) {
   const tone = severityTone(incident.severity);
-  const isWorkflow = incident.source === 'demo';
 
   return (
     <Link
@@ -58,7 +56,7 @@ function IncidentRow({ incident }: { incident: UnifiedIncidentListItem }) {
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-mono text-xs text-slate-400">
-            {isWorkflow ? incident.id : `${incident.id.slice(0, 8)}…`}
+            {incident.id.length > 12 ? `${incident.id.slice(0, 8)}…` : incident.id}
           </span>
           <span
             className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset capitalize ${SEVERITY_BG[tone]}`}
@@ -100,11 +98,6 @@ function IncidentRow({ incident }: { incident: UnifiedIncidentListItem }) {
       </div>
 
       <div className="mt-1 flex shrink-0 flex-col items-end gap-2">
-        {isWorkflow && (
-          <span className="flex items-center gap-1 text-xs text-slate-400">
-            <BrainCircuit className="h-3.5 w-3.5" /> AI workflow
-          </span>
-        )}
         <ChevronRight className="h-4 w-4 text-slate-300 transition-colors group-hover:text-blue-500" />
       </div>
     </Link>
@@ -251,7 +244,8 @@ export function Incidents() {
 
       {!apiAvailable && !isLoading && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          Some incident data is temporarily unavailable. Showing available records.
+          Incident service is temporarily unavailable. Check VPN connectivity and the platform API at{' '}
+          <code className="font-mono text-xs">/incident-api</code>.
         </div>
       )}
 

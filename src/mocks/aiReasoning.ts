@@ -162,81 +162,90 @@ export const MOCK_REASONING: Record<string, AiReasoning> = {
     model_version: 'scorpius-ai-v2.1.4',
     generated_at: new Date(Date.now() - 20 * 60_000).toISOString(),
     incident_summary:
-      'The Security Daemon (SecD) on uspdc-nac01-02 is failing to authenticate ' +
-      'requests for SVMs uspdc_nas01 and uspdc_home01. The failures correlate with ' +
-      'intermittent DNS resolution timeouts for the Active Directory domain ' +
-      'invensense.com, suggesting a dependency on external authentication infrastructure.',
+      'Observed secd.unexpectedFailure EMS events indicate the cluster admin vserver is failing ' +
+      'LDAP/NIS authentication lookups. The signal supports a cluster-login problem, but it does ' +
+      'not establish broad NAS client impact on its own.',
     root_cause_hypothesis:
-      'DNS resolution for the AD domain invensense.com is intermittently failing on node ' +
-      'uspdc-nac01-02, causing SecD to time out on LDAP/Kerberos authentication lookups. ' +
-      'Root cause: a DNS server change was pushed network-wide 25 minutes before the first ' +
-      'secd failure event. Node uspdc-nac01-01 (which uses a different DNS order) is unaffected.',
-    confidence_score: 81,
+      'Most likely the SecD path is failing during LDAP certificate or external name-service ' +
+      'validation. The repeated TLS hostname mismatch and no-server-available entries make the ' +
+      'authentication stack suspicious, but the evidence does not prove a DNS-only root cause or ' +
+      'single-node scope.',
+    confidence_score: 46,
     risk_level: 'medium',
+    confidence_note:
+      'Confidence is intentionally reduced because the observed EMS/log evidence is real, but the ' +
+      'cause and blast radius are still partly inferred from operator notes rather than proven by a ' +
+      'single authoritative source.',
     evidence: [
       {
         id: 'E6',
         type: 'event',
-        source: 'ONTAP EMS',
-        summary: '4× secd.unexpectedFailure on uspdc-nac01-02 in 22 minutes',
+        source: 'ONTAP EMS event log',
+        summary: 'Multiple secd.unexpectedFailure events observed for Vserver "admin"',
         relevance_score: 1.0,
+        provenance_note: 'Directly observed EMS event stream from the cluster.',
+        confidence_impact: 'high',
       },
       {
         id: 'E7',
         type: 'log',
-        source: 'SecD diagnostic log',
-        summary: 'LDAP bind timeout to 10.26.1.10 (primary DNS) — 3/4 attempts failed',
-        relevance_score: 0.93,
+        source: 'secd.log diagnostic output',
+        summary: 'TLS hostname mismatch and LDAP/NIS connection failures precede RESULT_ERROR_SECD_NO_SERVER_AVAILABLE',
+        relevance_score: 0.95,
+        provenance_note: 'Observed diagnostic log excerpt supplied by the operator.',
+        confidence_impact: 'high',
       },
       {
         id: 'E8',
         type: 'historical',
-        source: 'Change management log',
-        summary: 'DNS server reconfiguration pushed at 08:01 AM — 3 minutes before first failure',
-        relevance_score: 0.89,
+        source: 'Operator note',
+        summary: 'Operator reports the issue was fixed already and only affected cluster login',
+        relevance_score: 0.62,
+        provenance_note: 'Human annotation; useful context, but not an authoritative telemetry feed.',
+        confidence_impact: 'medium',
       },
     ],
     knowledge_references: [
       {
         id: 'KB-022',
-        title: 'SecD Failure Troubleshooting Guide',
+        title: 'ONTAP SecD authentication troubleshooting guide',
         type: 'runbook',
         excerpt:
-          'secd.unexpectedFailure most commonly caused by: (1) AD/LDAP connectivity issues, ' +
-          '(2) expired machine account password, (3) clock skew > 5 minutes. ' +
-          'First step: test DNS resolution from node: cluster::> dns check -vserver <svm>.',
+          'For secd.unexpectedFailure on the admin vserver, verify secd.log, LDAP server reachability, ' +
+          'certificate CN/SAN matching, and name-service configuration before restarting services.',
         similarity_score: 0.91,
+        source_label: 'ONTAP runbook',
+        caveat: 'Reference material only; not proof that DNS was the root cause in this incident.',
       },
     ],
     recommended_actions: [
       {
         id: 'ACT-010',
         rank: 1,
-        action: 'Update DNS configuration on uspdc-nac01-02 to point to backup DNS server',
-        rationale: 'Primary DNS server appears to be unreachable intermittently after the network change.',
+        action: 'Validate LDAP certificate identity and name-service reachability for the admin vserver',
+        rationale: 'The supplied secd.log points more directly to TLS/CN validation and external service reachability than to a proven DNS-only issue.',
         estimated_risk: 'low',
-        estimated_duration_minutes: 3,
+        estimated_duration_minutes: 10,
         reversible: true,
         requires_approval: false,
       },
       {
         id: 'ACT-011',
         rank: 2,
-        action: 'Restart Security Daemon on affected SVMs',
-        rationale: 'SecD restart clears the failed authentication state and re-establishes AD connections.',
+        action: 'Only restart SecD after evidence collection if the authentication path is still failing',
+        rationale: 'Restart may clear symptoms temporarily, but it should follow validation so the operator does not lose the root-cause trail.',
         estimated_risk: 'medium',
-        estimated_duration_minutes: 2,
+        estimated_duration_minutes: 5,
         reversible: false,
         requires_approval: true,
       },
     ],
     reasoning_trace:
-      'Step 1: Parsed secd.unexpectedFailure events. 4 occurrences in 22 minutes on node 02 only.\n' +
-      'Step 2: Checked SecD diagnostic logs. LDAP bind timeouts to primary DNS (10.26.1.10).\n' +
-      'Step 3: Queried change management log. DNS reconfiguration 3 minutes before first failure — strong correlation.\n' +
-      'Step 4: Confirmed node 01 unaffected (uses different DNS order). Narrows to per-node DNS config.\n' +
-      'Step 5: Retrieved KB-022. DNS issue → update DNS config first, then restart SecD if needed.\n' +
-      'Confidence 81% — causal chain clear but DNS change correlation unconfirmed without network team input.',
+      'Step 1: Parsed EMS events and confirmed secd.unexpectedFailure against the admin vserver.\n' +
+      'Step 2: Reviewed supplied secd.log evidence. TLS hostname mismatch and LDAP/NIS connection failures are directly observed.\n' +
+      'Step 3: Compared operator notes with the telemetry. Current evidence supports cluster-login impact, not confirmed NAS disruption.\n' +
+      'Step 4: Retrieved ONTAP troubleshooting guidance. Candidate causes include certificate identity, LDAP reachability, or broader name-service validation.\n' +
+      'Confidence 46% — strong evidence of authentication failure, weak evidence for a single precise root cause.',
   },
 
   'RSN-003': {
@@ -245,21 +254,36 @@ export const MOCK_REASONING: Record<string, AiReasoning> = {
     model_version: 'scorpius-ai-v2.1.4',
     generated_at: new Date(Date.now() - 64 * 60_000).toISOString(),
     incident_summary:
-      'Cluster peer address 10.61.64.28 does not match any configured intercluster LIF on the remote ' +
-      'cluster peer. SnapMirror replication for 8 destination volumes is interrupted.',
+      'A cluster peer warning indicates address 10.61.64.28 no longer appears in the remote ' +
+      'intercluster address list. The warning is actionable, but by itself it does not prove total ' +
+      'SnapMirror outage.',
     root_cause_hypothesis:
-      'The remote cluster peer updated its intercluster LIF IP address as part of a network ' +
-      'reconfiguration but did not notify this cluster. The stale peer address in the local ' +
-      'cluster peer record causes connection establishment failures.',
-    confidence_score: 88,
+      'The local peer definition likely still references an obsolete intercluster address. ' +
+      'However, the event alone cannot confirm that all replication paths are broken because ' +
+      'SnapMirror can continue operating when at least one valid intercluster LIF remains.',
+    confidence_score: 58,
     risk_level: 'medium',
+    confidence_note:
+      'Confidence is moderate because the warning clearly points to stale peer metadata, but the ' +
+      'reviewer notes show the prior analysis overstated impact and certainty.',
     evidence: [
       {
         id: 'E9',
         type: 'event',
-        source: 'ONTAP EMS',
+        source: 'ONTAP EMS event log',
         summary: 'cpeer.addr.warn.host: 10.61.64.28 not in peer cluster address list',
         relevance_score: 1.0,
+        provenance_note: 'Direct EMS warning from the cluster.',
+        confidence_impact: 'high',
+      },
+      {
+        id: 'E10',
+        type: 'historical',
+        source: 'Operator note',
+        summary: 'Reviewer notes SnapMirror would still work, although more slowly, as long as one good intercluster LIF remains',
+        relevance_score: 0.76,
+        provenance_note: 'Operator domain guidance used to calibrate impact and wording.',
+        confidence_impact: 'medium',
       },
     ],
     knowledge_references: [
@@ -269,28 +293,29 @@ export const MOCK_REASONING: Record<string, AiReasoning> = {
         type: 'runbook',
         excerpt:
           'To update a cluster peer address: cluster peer modify -peer-cluster <name> ' +
-          '-peer-addrs <new-ip>. Verify with: cluster peer show -instance.',
+          '-peer-addrs <new-ip>. First verify whether replication still has a healthy intercluster path.',
         similarity_score: 0.93,
+        source_label: 'ONTAP runbook',
+        caveat: 'This runbook describes a valid corrective action, but not every peer-address warning means replication is fully down.',
       },
     ],
     recommended_actions: [
       {
         id: 'ACT-020',
         rank: 1,
-        action: 'Update cluster peer address record to correct IP',
-        rationale: 'Stale peer address must be corrected for SnapMirror to resume.',
+        action: 'Verify active intercluster LIFs, then clean up the stale cluster peer address record if still present',
+        rationale: 'The warning should be corrected, but the operator should confirm whether replication still has a healthy path before assuming service outage.',
         estimated_risk: 'low',
-        estimated_duration_minutes: 5,
+        estimated_duration_minutes: 8,
         reversible: true,
         requires_approval: false,
       },
     ],
     reasoning_trace:
-      'Step 1: Identified affected cluster peer by IP 10.61.64.28.\n' +
-      'Step 2: Compared against current intercluster LIF configuration — address not found.\n' +
-      'Step 3: Checked SnapMirror relationship status — 8 relationships in "lagged" state.\n' +
-      'Step 4: Retrieved KB-031. Standard peer address update procedure.\n' +
-      'Confidence 88%.',
+      'Step 1: Parsed cpeer.addr.warn.host and confirmed the peer address mismatch warning.\n' +
+      'Step 2: Compared the warning semantics against operator notes: stale peer metadata is likely, but replication impact may be partial.\n' +
+      'Step 3: Retrieved the peer reconfiguration runbook and downgraded certainty until path health is verified.\n' +
+      'Confidence 58% — actionable warning, but the prior analysis overstated blast radius.',
   },
 
   'RSN-004': {
