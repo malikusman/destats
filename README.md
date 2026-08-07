@@ -20,6 +20,7 @@ Built with Vite, React 18, TypeScript, Tailwind CSS, TanStack Query, Recharts, a
 | [docs/PLATFORM_API_UI_MAP.md](docs/PLATFORM_API_UI_MAP.md) | Platform API → UI map |
 | [docs/INCIDENT_API_BACKEND_GAPS.md](docs/INCIDENT_API_BACKEND_GAPS.md) | Backend gaps / acceptance asks (Khai + manager) |
 | [docs/LIVE_INCIDENT_API_VERIFICATION.md](docs/LIVE_INCIDENT_API_VERIFICATION.md) | Live `:8003` API verification notes |
+| [docs/LIVE_API_RESPONSE_AUDIT.md](docs/LIVE_API_RESPONSE_AUDIT.md) | Live GET audit: samples + UI shown vs unused fields |
 
 ---
 
