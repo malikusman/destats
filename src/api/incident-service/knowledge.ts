@@ -1,4 +1,4 @@
-import { incidentGet, incidentPost } from './client';
+import { incidentGet, incidentPost, incidentPostForm } from './client';
 import type {
   KnowledgeCreatePayload,
   KnowledgeCreateResponse,
@@ -88,11 +88,28 @@ export function similarKnowledge(
 }
 
 export function ingestKnowledge(body: KnowledgeIngestRequest): Promise<KnowledgeIngestResponse> {
-  return incidentPost<KnowledgeIngestResponse>('/knowledge/ingest', body);
+  return incidentPost<KnowledgeIngestResponse>('/knowledge/ingest', {
+    title: body.title,
+    content: body.content,
+    document_type: body.document_type ?? body.type ?? 'note',
+    tags: body.tags ?? [],
+    source: body.source ?? 'destats-ui',
+  });
 }
 
 export function reprocessKnowledge(id: number | string): Promise<unknown> {
   return incidentPost(`/knowledge/${encodeURIComponent(String(id))}/reprocess`, {});
+}
+
+export function reprocessKnowledgeBulk(body: Record<string, unknown> = {}): Promise<unknown> {
+  return incidentPost('/knowledge/reprocess', body);
+}
+
+export function uploadKnowledge(file: File, tags: string[] = ['upload']): Promise<KnowledgeIngestResponse> {
+  const form = new FormData();
+  form.append('file', file);
+  for (const tag of tags) form.append('tags', tag);
+  return incidentPostForm<KnowledgeIngestResponse>('/knowledge/upload', form);
 }
 
 /** UI-shaped list for Knowledge page (live API). */

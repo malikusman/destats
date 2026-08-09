@@ -46,14 +46,42 @@ export function approveUseCase(id: number | string): Promise<UseCase> {
   return incidentPatch<UseCase>(`/usecases/${encodeURIComponent(String(id))}/approve`, {});
 }
 
-export function fetchUseCaseVersions(id: number | string): Promise<unknown> {
-  return incidentGet(`/usecases/${encodeURIComponent(String(id))}/versions`);
+export function archiveUseCase(id: number | string): Promise<UseCase> {
+  return incidentPatch<UseCase>(`/usecases/${encodeURIComponent(String(id))}/archive`, {});
 }
 
-export function fetchUseCaseIncidents(id: number | string): Promise<unknown> {
-  return incidentGet(`/usecases/${encodeURIComponent(String(id))}/incidents`);
+export async function exportUseCases(): Promise<unknown> {
+  return incidentGet('/usecases/export');
 }
 
-export function fetchUseCaseRelated(id: number | string): Promise<unknown> {
-  return incidentGet(`/usecases/${encodeURIComponent(String(id))}/related`);
+export async function importUseCases(payload: unknown): Promise<unknown> {
+  return incidentPost('/usecases/import', payload);
+}
+
+export async function fetchUseCaseVersions(id: number | string): Promise<unknown[]> {
+  const data = await incidentGet<unknown>(`/usecases/${encodeURIComponent(String(id))}/versions`);
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === 'object') {
+    const obj = data as Record<string, unknown>;
+    if (Array.isArray(obj.records)) return obj.records;
+    if (Array.isArray(obj.versions)) return obj.versions;
+  }
+  return [];
+}
+
+export async function fetchUseCaseIncidents(id: number | string): Promise<string[]> {
+  const data = await incidentGet<unknown>(`/usecases/${encodeURIComponent(String(id))}/incidents`);
+  if (Array.isArray(data)) return data.map(String);
+  if (data && typeof data === 'object') {
+    const obj = data as Record<string, unknown>;
+    for (const key of ['historical_incidents', 'incident_ids', 'incidents', 'records']) {
+      if (Array.isArray(obj[key])) return (obj[key] as unknown[]).map(String);
+    }
+  }
+  return [];
+}
+
+export async function fetchUseCaseRelated(id: number | string): Promise<UseCase[]> {
+  const data = await incidentGet<unknown>(`/usecases/${encodeURIComponent(String(id))}/related`);
+  return asUseCaseList(data);
 }

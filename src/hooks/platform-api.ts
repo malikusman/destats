@@ -2,9 +2,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRefreshInterval as useRefreshCtx } from './RefreshContext';
 import {
   approveUseCase,
+  archiveUseCase,
   createUseCase,
+  exportUseCases,
   fetchUseCaseById,
+  fetchUseCaseIncidents,
+  fetchUseCaseRelated,
   fetchUseCases,
+  fetchUseCaseVersions,
+  importUseCases,
   patchUseCase,
   searchUseCases,
   submitUseCase,
@@ -13,9 +19,13 @@ import {
   createKnowledge,
   fetchKnowledgeAsDocuments,
   fetchKnowledgeItem,
+  ingestKnowledge,
+  reprocessKnowledge,
+  reprocessKnowledgeBulk,
   retrieveKnowledge,
   searchKnowledgeAsDocuments,
   similarKnowledge,
+  uploadKnowledge,
 } from '../api/incident-service/knowledge';
 import {
   applyLearning,
@@ -36,6 +46,7 @@ import {
 import type {
   EvaluationRunRequest,
   KnowledgeCreatePayload,
+  KnowledgeIngestRequest,
   KnowledgeRetrieveRequest,
   KnowledgeSimilarRequest,
   LearningApplyRequest,
@@ -122,6 +133,57 @@ export function useApproveUseCase() {
   });
 }
 
+export function useArchiveUseCase() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number | string) => archiveUseCase(id),
+    onSuccess: (_data, id) => {
+      void qc.invalidateQueries({ queryKey: ['platform', 'usecases'] });
+      void qc.invalidateQueries({ queryKey: ['platform', 'usecase', id] });
+    },
+  });
+}
+
+export function useExportUseCases() {
+  return useMutation({
+    mutationFn: () => exportUseCases(),
+  });
+}
+
+export function useImportUseCases() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: unknown) => importUseCases(payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform', 'usecases'] });
+    },
+  });
+}
+
+export function useUseCaseVersions(id: number | string | undefined) {
+  return useQuery({
+    queryKey: ['platform', 'usecase', id, 'versions'],
+    queryFn: () => (id != null ? fetchUseCaseVersions(id) : []),
+    enabled: id != null && id !== '',
+  });
+}
+
+export function useUseCaseIncidents(id: number | string | undefined) {
+  return useQuery({
+    queryKey: ['platform', 'usecase', id, 'incidents'],
+    queryFn: () => (id != null ? fetchUseCaseIncidents(id) : []),
+    enabled: id != null && id !== '',
+  });
+}
+
+export function useUseCaseRelated(id: number | string | undefined) {
+  return useQuery({
+    queryKey: ['platform', 'usecase', id, 'related'],
+    queryFn: () => (id != null ? fetchUseCaseRelated(id) : []),
+    enabled: id != null && id !== '',
+  });
+}
+
 // --- Knowledge ---
 
 export function usePlatformKnowledge() {
@@ -174,6 +236,51 @@ export function useCreateKnowledge() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: KnowledgeCreatePayload) => createKnowledge(payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform', 'knowledge'] });
+      void qc.invalidateQueries({ queryKey: ['scorpius', 'knowledge'] });
+    },
+  });
+}
+
+export function useIngestKnowledge() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: KnowledgeIngestRequest) => ingestKnowledge(payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform', 'knowledge'] });
+      void qc.invalidateQueries({ queryKey: ['scorpius', 'knowledge'] });
+    },
+  });
+}
+
+export function useUploadKnowledge() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ file, tags }: { file: File; tags?: string[] }) =>
+      uploadKnowledge(file, tags),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform', 'knowledge'] });
+      void qc.invalidateQueries({ queryKey: ['scorpius', 'knowledge'] });
+    },
+  });
+}
+
+export function useReprocessKnowledge() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number | string) => reprocessKnowledge(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['platform', 'knowledge'] });
+      void qc.invalidateQueries({ queryKey: ['scorpius', 'knowledge'] });
+    },
+  });
+}
+
+export function useReprocessKnowledgeBulk() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => reprocessKnowledgeBulk({}),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['platform', 'knowledge'] });
       void qc.invalidateQueries({ queryKey: ['scorpius', 'knowledge'] });

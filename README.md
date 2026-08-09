@@ -21,6 +21,9 @@ Built with Vite, React 18, TypeScript, Tailwind CSS, TanStack Query, Recharts, a
 | [docs/INCIDENT_API_BACKEND_GAPS.md](docs/INCIDENT_API_BACKEND_GAPS.md) | Backend gaps / acceptance asks (Khai + manager) |
 | [docs/LIVE_INCIDENT_API_VERIFICATION.md](docs/LIVE_INCIDENT_API_VERIFICATION.md) | Live `:8003` API verification notes |
 | [docs/LIVE_API_RESPONSE_AUDIT.md](docs/LIVE_API_RESPONSE_AUDIT.md) | Live GET audit: samples + UI shown vs unused fields |
+| [docs/DEVELOPER_API_HANDOFFS.md](docs/DEVELOPER_API_HANDOFFS.md) | Developer PDF handoffs: Incident Service Epics 4/5/10/11 + Control Plane Epics 7/13/14 |
+| [docs/DEVELOPER_API_LIVE_AUDIT.md](docs/DEVELOPER_API_LIVE_AUDIT.md) | Live curl verification of handoff APIs (status + response samples) |
+| [docs/EPIC_4_5_10_11_INTEGRATION_AND_LIVE_RESPONSES.md](docs/EPIC_4_5_10_11_INTEGRATION_AND_LIVE_RESPONSES.md) | Epics 4/5/10/11: integrated vs not + live response samples |
 
 ---
 

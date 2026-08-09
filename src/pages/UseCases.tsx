@@ -1,19 +1,29 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
+  Archive,
   CheckCircle2,
   ClipboardList,
+  Download,
   Lightbulb,
   ListFilter,
   Search,
   Send,
+  Upload,
   X,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import {
   useApproveUseCase,
+  useArchiveUseCase,
   useCreateUseCase,
+  useExportUseCases,
+  useImportUseCases,
   useSubmitUseCase,
+  useUseCaseIncidents,
+  useUseCaseRelated,
   useUseCaseSearch,
   useUseCases,
+  useUseCaseVersions,
 } from '../hooks/platform-api';
 import { formatRelative, formatTimestamp } from '../lib/format';
 import type { UseCase } from '../types/platform-api';
@@ -68,6 +78,85 @@ function UseCaseCard({
   );
 }
 
+function UseCaseDetailExtras({
+  usecaseId,
+  onSelectRelated,
+}: {
+  usecaseId: number;
+  onSelectRelated: (id: number) => void;
+}) {
+  const versions = useUseCaseVersions(usecaseId);
+  const incidents = useUseCaseIncidents(usecaseId);
+  const related = useUseCaseRelated(usecaseId);
+
+  return (
+    <div className="space-y-3 border-t border-slate-100 pt-4">
+      <div>
+        <p className="text-xs font-medium uppercase text-slate-400">Versions</p>
+        {versions.isLoading && <p className="mt-1 text-xs text-slate-400">Loading…</p>}
+        {!versions.isLoading && (versions.data?.length ?? 0) === 0 && (
+          <p className="mt-1 text-xs text-slate-400">No prior versions recorded.</p>
+        )}
+        <ul className="mt-1 space-y-1">
+          {(versions.data ?? []).slice(0, 5).map((v, i) => {
+            const row = v as Record<string, unknown>;
+            return (
+              <li key={i} className="rounded-md bg-slate-50 px-2 py-1 text-xs text-slate-600">
+                {String(row.title ?? row.version ?? row.updated_at ?? `Version ${i + 1}`)}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
+      <div>
+        <p className="text-xs font-medium uppercase text-slate-400">Linked incidents</p>
+        {incidents.isLoading && <p className="mt-1 text-xs text-slate-400">Loading…</p>}
+        {!incidents.isLoading && (incidents.data?.length ?? 0) === 0 && (
+          <p className="mt-1 text-xs text-slate-400">No linked incidents.</p>
+        )}
+        <ul className="mt-1 flex flex-wrap gap-2">
+          {(incidents.data ?? []).map((id) => (
+            <li key={id}>
+              {id.startsWith('INC-') || id.includes('-') ? (
+                <Link
+                  to={`/incidents/${id}`}
+                  className="font-mono text-xs text-blue-600 hover:underline"
+                >
+                  {id}
+                </Link>
+              ) : (
+                <span className="font-mono text-xs text-slate-600">{id}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div>
+        <p className="text-xs font-medium uppercase text-slate-400">Related use cases</p>
+        {related.isLoading && <p className="mt-1 text-xs text-slate-400">Loading…</p>}
+        {!related.isLoading && (related.data?.length ?? 0) === 0 && (
+          <p className="mt-1 text-xs text-slate-400">No related use cases.</p>
+        )}
+        <ul className="mt-1 space-y-1">
+          {(related.data ?? []).map((uc) => (
+            <li key={uc.id}>
+              <button
+                type="button"
+                onClick={() => onSelectRelated(uc.id)}
+                className="text-left text-xs text-blue-600 hover:underline"
+              >
+                UC-{uc.id}: {uc.title}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 export function UseCases() {
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -78,12 +167,17 @@ export function UseCases() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('capacity');
+  const [actionMsg, setActionMsg] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   const list = useUseCases();
   const search = useUseCaseSearch(query);
   const create = useCreateUseCase();
   const submit = useSubmitUseCase();
   const approve = useApproveUseCase();
+  const archive = useArchiveUseCase();
+  const exportUc = useExportUseCases();
+  const importUc = useImportUseCases();
 
   const isSearching = query.trim().length >= 2;
   const items = isSearching ? (search.data ?? []) : (list.data ?? []);
@@ -119,6 +213,8 @@ export function UseCases() {
     [list.data],
   );
   const hasFilters = statusFilter !== 'all' || categoryFilter !== 'all';
+  const canArchive =
+    !!selected && !selected.status.toLowerCase().includes('archiv');
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -137,6 +233,43 @@ export function UseCases() {
     setSelectedId(created.id);
   }
 
+  async function handleExport() {
+    setActionMsg(null);
+    try {
+      const data = await exportUc.mutateAsync();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `usecases-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setActionMsg('Export downloaded.');
+    } catch (err) {
+      setActionMsg((err as Error).message);
+    }
+  }
+
+  async function handleImportFile(file: File) {
+    setActionMsg(null);
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text) as unknown;
+      const payload =
+        parsed && typeof parsed === 'object' && 'usecases' in (parsed as object)
+          ? parsed
+          : Array.isArray(parsed)
+            ? { usecases: parsed }
+            : parsed && typeof parsed === 'object' && 'records' in (parsed as object)
+              ? { usecases: (parsed as { records: unknown }).records }
+              : { usecases: [parsed] };
+      await importUc.mutateAsync(payload);
+      setActionMsg('Import completed.');
+    } catch (err) {
+      setActionMsg((err as Error).message);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -146,7 +279,36 @@ export function UseCases() {
             Operational runbooks in lifecycle stages from draft to approval.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void handleExport()}
+            disabled={exportUc.isPending}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Export
+          </button>
+          <button
+            type="button"
+            onClick={() => importInputRef.current?.click()}
+            disabled={importUc.isPending}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            Import
+          </button>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = '';
+              if (file) void handleImportFile(file);
+            }}
+          />
           <button
             type="button"
             onClick={() => setFiltersOpen((v) => !v)}
@@ -169,6 +331,10 @@ export function UseCases() {
           </button>
         </div>
       </div>
+
+      {actionMsg && (
+        <p className="text-xs text-slate-600">{actionMsg}</p>
+      )}
 
       {showCreate && (
         <form
@@ -399,12 +565,28 @@ export function UseCases() {
                     Approve
                   </button>
                 )}
+                {canArchive && (
+                  <button
+                    type="button"
+                    disabled={archive.isPending}
+                    onClick={() => archive.mutate(selected.id)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-700 hover:bg-orange-100 disabled:opacity-50"
+                  >
+                    <Archive className="h-3.5 w-3.5" />
+                    Archive
+                  </button>
+                )}
               </div>
-              {(submit.isError || approve.isError) && (
+              {(submit.isError || approve.isError || archive.isError) && (
                 <p className="text-xs text-red-600">
-                  {((submit.error || approve.error) as Error).message}
+                  {((submit.error || approve.error || archive.error) as Error).message}
                 </p>
               )}
+
+              <UseCaseDetailExtras
+                usecaseId={selected.id}
+                onSelectRelated={(id) => setSelectedId(id)}
+              />
             </div>
           )}
         </div>

@@ -134,6 +134,9 @@ export interface KnowledgeIngestRequest {
   title: string;
   content: string;
   type?: string;
+  document_type?: string;
+  tags?: string[];
+  source?: string;
 }
 
 export interface KnowledgeIngestResponse {

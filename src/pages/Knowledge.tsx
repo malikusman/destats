@@ -1,14 +1,23 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   BookOpen,
   FileText,
   History,
   Lightbulb,
+  RefreshCw,
   Search,
   Tag,
+  Upload,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useKnowledge, useKnowledgeSearch } from '../hooks/scorpius';
+import {
+  useIngestKnowledge,
+  usePlatformKnowledge,
+  usePlatformKnowledgeSearch,
+  useReprocessKnowledge,
+  useReprocessKnowledgeBulk,
+  useUploadKnowledge,
+} from '../hooks/platform-api';
 import { formatRelative } from '../lib/format';
 import type { KnowledgeDocument } from '../types/scorpius';
 
@@ -28,7 +37,15 @@ const TYPE_BADGE: Record<KnowledgeDocument['type'], string> = {
   policy: 'bg-orange-100 text-orange-700',
 };
 
-function DocumentCard({ doc }: { doc: KnowledgeDocument }) {
+function DocumentCard({
+  doc,
+  onReprocess,
+  reprocessing,
+}: {
+  doc: KnowledgeDocument;
+  onReprocess: (id: string) => void;
+  reprocessing: boolean;
+}) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -56,12 +73,24 @@ function DocumentCard({ doc }: { doc: KnowledgeDocument }) {
             </div>
           )}
 
-          <button
-            onClick={() => setExpanded((v) => !v)}
-            className="mt-2 text-xs text-blue-600 hover:text-blue-800"
-          >
-            {expanded ? 'Show less ↑' : 'Show excerpt ↓'}
-          </button>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="text-xs text-blue-600 hover:text-blue-800"
+            >
+              {expanded ? 'Show less ↑' : 'Show excerpt ↓'}
+            </button>
+            <button
+              type="button"
+              disabled={reprocessing}
+              onClick={() => onReprocess(doc.id)}
+              className="inline-flex items-center gap-1 text-xs text-slate-600 hover:text-slate-900 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3 w-3 ${reprocessing ? 'animate-spin' : ''}`} />
+              Reprocess
+            </button>
+          </div>
 
           <div className="mt-2 flex flex-wrap items-center gap-3">
             {doc.tags.map((t) => (
@@ -100,27 +129,37 @@ function DocumentCard({ doc }: { doc: KnowledgeDocument }) {
 export function Knowledge() {
   const [query, setQuery] = useState('');
   const [activeType, setActiveType] = useState<string>('all');
+  const [showIngest, setShowIngest] = useState(false);
+  const [ingestTitle, setIngestTitle] = useState('');
+  const [ingestContent, setIngestContent] = useState('');
+  const [actionMsg, setActionMsg] = useState<string | null>(null);
+  const [reprocessingId, setReprocessingId] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const { data: allDocs, isLoading: loadingAll } = useKnowledge();
-  const { data: searchResults, isLoading: loadingSearch } = useKnowledgeSearch(query);
+  const list = usePlatformKnowledge();
+  const search = usePlatformKnowledgeSearch(query);
+  const ingest = useIngestKnowledge();
+  const upload = useUploadKnowledge();
+  const reprocess = useReprocessKnowledge();
+  const bulk = useReprocessKnowledgeBulk();
 
   const isSearching = query.trim().length >= 2;
-  const isLoading = isSearching ? loadingSearch : loadingAll;
+  const isLoading = isSearching ? search.isLoading : list.isLoading;
 
   const documents = isSearching
-    ? (searchResults?.results ?? []).map((r) => r.document)
-    : (allDocs?.documents ?? []);
+    ? (search.data?.results ?? []).map((r) => r.document)
+    : (list.data?.documents ?? []);
 
   const filtered =
     activeType === 'all' ? documents : documents.filter((d) => d.type === activeType);
 
   const typeCounts: Record<string, number> = {};
-  (allDocs?.documents ?? []).forEach((d) => {
+  (list.data?.documents ?? []).forEach((d) => {
     typeCounts[d.type] = (typeCounts[d.type] ?? 0) + 1;
   });
 
   const typeFilters: Array<{ key: string; label: string }> = [
-    { key: 'all', label: `All (${allDocs?.total ?? 0})` },
+    { key: 'all', label: `All (${list.data?.total ?? 0})` },
     { key: 'runbook', label: `Runbooks (${typeCounts.runbook ?? 0})` },
     { key: 'incident_history', label: `History (${typeCounts.incident_history ?? 0})` },
     { key: 'use_case', label: `Use Cases (${typeCounts.use_case ?? 0})` },
@@ -128,17 +167,144 @@ export function Knowledge() {
     { key: 'documentation', label: `Docs (${typeCounts.documentation ?? 0})` },
   ];
 
+  async function handleIngest(e: React.FormEvent) {
+    e.preventDefault();
+    if (!ingestTitle.trim() || !ingestContent.trim()) return;
+    setActionMsg(null);
+    try {
+      await ingest.mutateAsync({
+        title: ingestTitle.trim(),
+        content: ingestContent.trim(),
+        document_type: 'note',
+        tags: ['destats-ui'],
+      });
+      setIngestTitle('');
+      setIngestContent('');
+      setShowIngest(false);
+      setActionMsg('Document ingested and embedded.');
+    } catch (err) {
+      setActionMsg((err as Error).message);
+    }
+  }
+
+  async function handleUpload(file: File) {
+    setActionMsg(null);
+    try {
+      await upload.mutateAsync({ file, tags: ['upload'] });
+      setActionMsg(`Uploaded ${file.name}.`);
+    } catch (err) {
+      setActionMsg((err as Error).message);
+    }
+  }
+
+  async function handleReprocess(id: string) {
+    setReprocessingId(id);
+    setActionMsg(null);
+    try {
+      await reprocess.mutateAsync(id);
+      setActionMsg(`Reprocessed document ${id}.`);
+    } catch (err) {
+      setActionMsg((err as Error).message);
+    } finally {
+      setReprocessingId(null);
+    }
+  }
+
+  async function handleBulkReprocess() {
+    setActionMsg(null);
+    try {
+      await bulk.mutateAsync();
+      setActionMsg('Bulk reprocess requested.');
+    } catch (err) {
+      setActionMsg((err as Error).message);
+    }
+  }
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold text-slate-900">Knowledge Repository</h1>
-        <p className="mt-0.5 text-sm text-slate-500">
-          Searchable guidance and historical context used to inform recommendations.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-slate-900">Knowledge Repository</h1>
+          <p className="mt-0.5 text-sm text-slate-500">
+            Searchable guidance and historical context used to inform recommendations.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={upload.isPending}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            Upload
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".txt,.md,text/plain,text/markdown"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = '';
+              if (file) void handleUpload(file);
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowIngest((v) => !v)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+          >
+            {showIngest ? 'Cancel' : 'Ingest text'}
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleBulkReprocess()}
+            disabled={bulk.isPending}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${bulk.isPending ? 'animate-spin' : ''}`} />
+            Bulk reprocess
+          </button>
+        </div>
       </div>
 
-      {/* Search */}
+      {actionMsg && <p className="text-xs text-slate-600">{actionMsg}</p>}
+
+      {showIngest && (
+        <form
+          onSubmit={(e) => void handleIngest(e)}
+          className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+        >
+          <div>
+            <label className="text-xs font-medium text-slate-600">Title</label>
+            <input
+              value={ingestTitle}
+              onChange={(e) => setIngestTitle(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              required
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-slate-600">Content</label>
+            <textarea
+              value={ingestContent}
+              onChange={(e) => setIngestContent(e.target.value)}
+              rows={5}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-mono"
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={ingest.isPending}
+            className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {ingest.isPending ? 'Ingesting…' : 'Ingest & embed'}
+          </button>
+        </form>
+      )}
+
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input
@@ -148,19 +314,19 @@ export function Knowledge() {
           onChange={(e) => setQuery(e.target.value)}
           className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
         />
-        {loadingSearch && query.length >= 2 && (
+        {search.isLoading && query.length >= 2 && (
           <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">
             Searching…
           </div>
         )}
       </div>
 
-      {/* Type filter */}
       {!isSearching && (
         <div className="flex flex-wrap gap-2">
           {typeFilters.map(({ key, label }) => (
             <button
               key={key}
+              type="button"
               onClick={() => setActiveType(key)}
               className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
                 activeType === key
@@ -174,7 +340,6 @@ export function Knowledge() {
         </div>
       )}
 
-      {/* Results */}
       {isLoading && (
         <div className="space-y-3">
           {[1, 2, 3].map((n) => (
@@ -185,7 +350,8 @@ export function Knowledge() {
 
       {!isLoading && isSearching && (
         <div className="text-xs text-slate-400">
-          {searchResults?.total ?? 0} result{(searchResults?.total ?? 0) !== 1 ? 's' : ''} for &quot;{query}&quot;
+          {search.data?.total ?? 0} result{(search.data?.total ?? 0) !== 1 ? 's' : ''} for &quot;
+          {query}&quot;
         </div>
       )}
 
@@ -196,7 +362,14 @@ export function Knowledge() {
               {isSearching ? `No results for "${query}"` : 'No documents found.'}
             </div>
           ) : (
-            filtered.map((doc) => <DocumentCard key={doc.id} doc={doc} />)
+            filtered.map((doc) => (
+              <DocumentCard
+                key={doc.id}
+                doc={doc}
+                onReprocess={(id) => void handleReprocess(id)}
+                reprocessing={reprocessingId === doc.id}
+              />
+            ))
           )}
         </div>
       )}
