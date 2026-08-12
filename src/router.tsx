@@ -16,6 +16,15 @@ import { UseCases } from './pages/UseCases';
 import { Learning } from './pages/Learning';
 import { Evaluation } from './pages/Evaluation';
 import { SystemStatus } from './pages/SystemStatus';
+import {
+  ControlPlane,
+  ControlPlaneAuditTab,
+  ControlPlaneIndex,
+  ControlPlaneModelsTab,
+  ControlPlanePolicyTab,
+  ControlPlanePromptsTab,
+} from './pages/ControlPlane';
+import { IncidentControlPlane } from './pages/IncidentControlPlane';
 
 export const router = createBrowserRouter([
   {
@@ -37,6 +46,7 @@ export const router = createBrowserRouter([
           { path: 'overview', element: <IncidentOverview /> },
           { path: 'reasoning', element: <AiReasoning /> },
           { path: 'planning', element: <Planning /> },
+          { path: 'control-plane', element: <IncidentControlPlane /> },
           { path: 'execution', element: <Navigate to="overview" replace /> },
         ],
       },
@@ -46,6 +56,21 @@ export const router = createBrowserRouter([
       { path: 'learning', element: <Learning /> },
       { path: 'evaluation', element: <Evaluation /> },
       { path: 'system-status', element: <SystemStatus /> },
+      {
+        path: 'control-plane',
+        element: <ControlPlane />,
+        children: [
+          { index: true, element: <ControlPlaneIndex /> },
+          { path: 'models', element: <ControlPlaneModelsTab /> },
+          { path: 'prompts', element: <ControlPlanePromptsTab /> },
+          { path: 'audit', element: <ControlPlaneAuditTab /> },
+          { path: 'policy', element: <ControlPlanePolicyTab /> },
+        ],
+      },
+      { path: 'ai-models', element: <Navigate to="/control-plane/models" replace /> },
+      { path: 'prompt-catalog', element: <Navigate to="/control-plane/prompts" replace /> },
+      { path: 'ai-audit', element: <Navigate to="/control-plane/audit" replace /> },
+      { path: 'policy-rules', element: <Navigate to="/control-plane/policy" replace /> },
       { path: 'api-docs', element: <Navigate to="/" replace /> },
     ],
   },

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ClipboardCheck, ListFilter, Play, Search, X } from 'lucide-react';
 import {
+  useEvaluationDetail,
   useEvaluationHistory,
   useEvaluations,
   useRunEvaluation,
@@ -65,6 +66,7 @@ export function Evaluation() {
 
   const list = useEvaluations();
   const history = useEvaluationHistory();
+  const detail = useEvaluationDetail(selectedId ?? undefined);
   const run = useRunEvaluation();
 
   const combined = useMemo(() => {
@@ -99,10 +101,11 @@ export function Evaluation() {
     );
   }, [combined, query, scoreBandFilter, statusFilter]);
 
-  const selected =
+  const listSelected =
     filtered.find((e) => e.evaluation_id === selectedId) ??
     combined.find((e) => e.evaluation_id === selectedId) ??
     null;
+  const selected = detail.data ?? listSelected;
 
   async function handleRun(e: React.FormEvent) {
     e.preventDefault();
@@ -308,6 +311,9 @@ export function Evaluation() {
             </div>
           ) : (
             <div className="space-y-4">
+              {detail.isFetching && !detail.data && (
+                <p className="text-xs text-slate-400">Loading metrics…</p>
+              )}
               <div>
                 <p className="font-mono text-xs text-slate-400">{selected.evaluation_id}</p>
                 <h2 className="mt-1 text-base font-semibold text-slate-900">
@@ -340,8 +346,14 @@ export function Evaluation() {
                     {formatTimestamp(selected.completed_at)}
                   </dd>
                 </div>
+                {selected.response_time_ms != null && (
+                  <div>
+                    <dt className="text-slate-400">Response time</dt>
+                    <dd className="font-medium text-slate-700">{selected.response_time_ms} ms</dd>
+                  </div>
+                )}
               </dl>
-              {selected.metrics && selected.metrics.length > 0 && (
+              {selected.metrics && selected.metrics.length > 0 ? (
                 <div>
                   <p className="mb-2 text-xs font-medium uppercase text-slate-400">Metrics</p>
                   <div className="space-y-2">
@@ -367,6 +379,15 @@ export function Evaluation() {
                     ))}
                   </div>
                 </div>
+              ) : (
+                !detail.isFetching && (
+                  <p className="text-xs text-slate-400">No metric breakdown for this run.</p>
+                )
+              )}
+              {detail.isError && (
+                <p className="text-xs text-amber-700">
+                  Could not load full evaluation details. Showing list summary.
+                </p>
               )}
             </div>
           )}

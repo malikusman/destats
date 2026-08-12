@@ -21,4 +21,6 @@ services:
       # Override for direct incident service (deferred): http://10.0.65.19:8003
       # Local mock only: docker compose --profile demo up, INCIDENT_API_TARGET=http://mock-api:3090
       - INCIDENT_API_TARGET=${INCIDENT_API_TARGET:-http://10.0.65.19:8088/incident-api}
+      # Control Plane (Epics 7/13/14). Correct host is .40 — .19:8000 is Attu.
+      - CONTROL_PLANE_API_TARGET=${CONTROL_PLANE_API_TARGET:-http://10.0.65.40:8000}
     restart: unless-stopped

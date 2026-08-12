@@ -10,6 +10,13 @@ import { getMockSystemStatus } from '../../mocks/systemStatus';
 import { fetchHealth } from '../health';
 import { fetchMetaSummary } from '../summary';
 import { fetchIncidentHealth } from '../incident-service/incidents';
+import {
+  fetchAgentHealth,
+  fetchAiHealth,
+  fetchExecutionHealth,
+  fetchPolicyHealth,
+  type ControlPlaneHealth,
+} from '../control-plane/health';
 
 function overallFrom(services: ServiceStatus[]): ServiceHealth {
   if (services.some((s) => s.health === 'down')) return 'down';
@@ -18,14 +25,67 @@ function overallFrom(services: ServiceStatus[]): ServiceHealth {
   return 'unknown';
 }
 
+function controlPlaneOk(body: ControlPlaneHealth): boolean {
+  const status = (body.status ?? '').toLowerCase();
+  return status === 'ok' || status === 'healthy';
+}
+
+function pushControlPlaneProbe(
+  services: ServiceStatus[],
+  checkedAt: string,
+  result: PromiseSettledResult<ControlPlaneHealth>,
+  meta: { id: string; name: string; description: string; endpoint: string },
+) {
+  if (result.status === 'fulfilled') {
+    const body = result.value;
+    const metrics: Record<string, string | number> = { status: body.status };
+    if (body.service) metrics.service = body.service;
+    if (body.mode) metrics.mode = body.mode;
+    services.push({
+      id: meta.id,
+      name: meta.name,
+      description: body.mode
+        ? `${meta.description} (mode: ${body.mode})`
+        : meta.description,
+      health: controlPlaneOk(body) ? 'healthy' : 'degraded',
+      last_check: checkedAt,
+      endpoint: meta.endpoint,
+      metrics,
+    });
+  } else {
+    services.push({
+      id: meta.id,
+      name: meta.name,
+      description: meta.description,
+      health: 'down',
+      last_check: checkedAt,
+      endpoint: meta.endpoint,
+      error_message:
+        result.reason instanceof Error ? result.reason.message : 'Health check failed',
+    });
+  }
+}
+
 async function probeLiveSystemStatus(): Promise<SystemStatusResponse> {
   const checkedAt = new Date().toISOString();
   const services: ServiceStatus[] = [];
 
-  const [ingestionHealth, meta, incidentHealth] = await Promise.allSettled([
+  const [
+    ingestionHealth,
+    meta,
+    incidentHealth,
+    aiHealth,
+    agentHealth,
+    policyHealth,
+    executionHealth,
+  ] = await Promise.allSettled([
     fetchHealth(),
     fetchMetaSummary(),
     fetchIncidentHealth(),
+    fetchAiHealth(),
+    fetchAgentHealth(),
+    fetchPolicyHealth(),
+    fetchExecutionHealth(),
   ]);
 
   if (ingestionHealth.status === 'fulfilled') {
@@ -110,6 +170,31 @@ async function probeLiveSystemStatus(): Promise<SystemStatusResponse> {
           : 'Health check failed',
     });
   }
+
+  pushControlPlaneProbe(services, checkedAt, aiHealth, {
+    id: 'control-plane-ai',
+    name: 'AI Gateway',
+    description: 'Control Plane · Epic 13',
+    endpoint: '/control-plane-api/ai/health',
+  });
+  pushControlPlaneProbe(services, checkedAt, agentHealth, {
+    id: 'control-plane-agent',
+    name: 'Agent Intelligence',
+    description: 'Control Plane · Epic 7',
+    endpoint: '/control-plane-api/agent/health',
+  });
+  pushControlPlaneProbe(services, checkedAt, policyHealth, {
+    id: 'control-plane-policy',
+    name: 'Policy Engine',
+    description: 'Control Plane · Epic 14',
+    endpoint: '/control-plane-api/policy/health',
+  });
+  pushControlPlaneProbe(services, checkedAt, executionHealth, {
+    id: 'control-plane-execution',
+    name: 'Execution Proxy',
+    description: 'Control Plane · safe simulation boundary',
+    endpoint: '/control-plane-api/execution/health',
+  });
 
   return {
     overall_health: overallFrom(services),

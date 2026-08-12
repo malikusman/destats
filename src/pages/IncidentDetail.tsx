@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   BrainCircuit,
   Clock,
+  Cpu,
   GitBranch,
   LayoutList,
 } from 'lucide-react';
@@ -90,6 +91,12 @@ export function IncidentDetail() {
       icon: GitBranch,
       workflow: true,
       unavailableTitle: 'Remediation planning is not available for live incidents yet',
+    },
+    {
+      to: 'control-plane',
+      label: 'Control Plane',
+      icon: Cpu,
+      workflow: false,
     },
   ];
 

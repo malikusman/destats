@@ -12,7 +12,8 @@ This document records **live HTTP results** for every endpoint listed in the two
 |------|-------------|--------|
 | A — Incident Service | `http://10.0.65.19:8088/incident-api` | Live FastAPI-style JSON API |
 | A — direct spot-check | `http://10.0.65.19:8003/health` | `{"status":"healthy"}` |
-| B — Control Plane (as documented) | `http://10.0.65.19:8000` | **Not** the control-plane API — serves **Attu** (Milvus UI SPA) |
+| B — Control Plane (handoff typo) | `http://10.0.65.19:8000` | **Attu** (Milvus UI SPA) — wrong host |
+| B — Control Plane (**correct**) | `http://10.0.65.40:8000` | Live — full inventory **200** (verified 2026-08-10) |
 
 IDs used during capture:
 
@@ -37,9 +38,10 @@ Raw captures: `/tmp/destats-handoff-audit/` (local machine at audit time).
 | Part A Epic 5 Knowledge | List/search/ingest/similar/retrieve/reprocess/upload | Unfiltered list still plain array; upload needs multipart `file` | `GET /knowledge/health/dependencies` **404** |
 | Part A Epic 10 Learning | List/stats/rankings/detail/feedback | `POST /learning/apply` returns empty ranked list; feedback requires `success` | `GET /learning/{id}/history` **404** |
 | Part A Epic 11 Evaluation | Summary/history/detail/run | Summary lacks explicit partial/not-evaluable counts from handoff | — |
-| Part B Control Plane (:8000) | — | — | **All** documented AI/Agent/Policy/Execution routes **404** (wrong service) |
+| Part B Control Plane (wrong host `.19:8000`) | — | — | Attu SPA / 404s (initial audit) |
+| Part B Control Plane (**`.40:8000`**) | Full inventory (health, catalog GETs, AI/agent/policy POSTs, execution submit) | Admin policy mutations live but **not** in UI | Confirmed 2026-08-10 |
 
-**Headline:** Incident Service Epics 4/5/10/11 are largely live behind `/incident-api`. Control Plane Epics 7/13/14 are **not reachable** at the documented `http://10.0.65.19:8000` base today.
+**Headline:** Incident Service Epics 4/5/10/11 are largely live behind `/incident-api`. Control Plane Epics 7/13/14 are live at **`http://10.0.65.40:8000`** (handoff originally listed `.19:8000` by mistake).
 
 ---
 
@@ -470,83 +472,94 @@ Working end-to-end.
 
 # Part B — Control Plane live results
 
-Documented base: `CP=http://10.0.65.19:8000`
+## Correction (2026-08-10)
 
-## Critical finding
+Handoff originally listed `http://10.0.65.19:8000`. That host serves **Attu** (Milvus UI).  
+**Correct Control Plane base:** `http://10.0.65.40:8000`
 
-`GET /` returns the **Attu** Milvus management SPA (`<title>Attu</title>`, “best milvus management tool”), **not** the Scorpius TDK Control Plane API described in the handoff.
+Dashboard proxy: `/control-plane-api` → `.40:8000`.
 
-All control-plane paths therefore fail:
+### Full inventory recheck (2026-08-10) — all **200**
 
-| Kind | Typical response |
-|------|------------------|
-| GET `/ai/health`, `/agent/health`, `/policy/health`, `/execution/health`, `/ai/models`, `/ai/prompts`, `/ai/logs`, `/policy/rules`, `/docs`, `/openapi.json`, `/health` | **404** JSON: `ENOENT … /app/dist/build/index.html` |
-| POST `/ai/*`, `/agent/*`, `/policy/*`, `/execution/submit` | **404** HTML: `Cannot POST /…` |
-| PATCH `/policy/rules/{id}` | **404** HTML: `Cannot PATCH /…` |
+Captures: `/tmp/cp40-full/` on the audit machine.
 
-### Representative GET error
+#### Health
 
-```json
-{
-  "statusCode": 404,
-  "message": "Error: ENOENT: no such file or directory, stat '/app/dist/build/index.html'",
-  "error": "Bad Request"
-}
-```
+| Method | Path | HTTP | Sample |
+|--------|------|-----:|--------|
+| GET | `/health` | 200 | `{"status":"ok"}` |
+| GET | `/ai/health` | 200 | `{"status":"ok","service":"ai"}` |
+| GET | `/agent/health` | 200 | `{"status":"ok","service":"agent"}` |
+| GET | `/policy/health` | 200 | `{"status":"ok","service":"policy"}` |
+| GET | `/execution/health` | 200 | `{"status":"ok","service":"execution-proxy","mode":"SAFE_SIMULATION"}` |
 
-### Representative POST error
+#### Catalog GETs (UI: AI Models, Prompt Catalog, AI Audit, Policy Rules)
 
-```html
-<pre>Cannot POST /ai/complete</pre>
-```
+| Method | Path | HTTP | Notes |
+|--------|------|-----:|-------|
+| GET | `/ai/models` | 200 | `stub-local` available; `gpt-5-mini` unavailable |
+| GET | `/ai/prompts` | 200 | e.g. `incident_summary_v1`, `plan_evaluation_v1` |
+| GET | `/ai/logs` | 200 | In-memory / **restart-volatile** |
+| GET | `/policy/rules` | 200 | Ordered rules (deny destructive, high-risk approval, …) |
+| GET | `/docs` | 200 | Swagger UI |
 
-### Root identity proof
+#### AI POSTs (stub-local SUCCESS — not wired as public “Try completion” UI yet)
 
-```html
-<title>Attu</title>
-<meta name="description" content="Attu, best milvus management tool" />
-```
+| Method | Path | HTTP | Notes |
+|--------|------|-----:|-------|
+| POST | `/ai/complete` | 200 | Deterministic stub |
+| POST | `/ai/chat` | 200 | Deterministic stub |
+| POST | `/ai/evaluate` | 200 | Deterministic stub |
+| POST | `/ai/route` | 200 | Selects stub-local |
 
-## Part B inventory (all attempted)
+#### Agent POSTs (UI: Incident detail → Control Plane tab)
 
-| Method | Path | HTTP | Working? |
-|--------|------|-----:|----------|
-| GET | `/` | 200 | Wrong service (Attu HTML) |
-| GET | `/health` | 404 | No |
-| GET | `/docs` | 404 | No |
-| GET | `/openapi.json` | 404 | No |
-| GET | `/ai/health` | 404 | No |
-| GET | `/ai/models` | 404 | No |
-| GET | `/ai/prompts` | 404 | No |
-| GET | `/ai/logs` | 404 | No |
-| POST | `/ai/complete` | 404 | No |
-| POST | `/ai/chat` | 404 | No |
-| POST | `/ai/evaluate` | 404 | No |
-| POST | `/ai/route` | 404 | No |
-| GET | `/agent/health` | 404 | No |
-| POST | `/agent/evaluate-incident` | 404 | No |
-| POST | `/agent/evaluate-plan` | 404 | No |
-| POST | `/agent/evaluate-action` | 404 | No |
-| POST | `/agent/rank-recommendations` | 404 | No |
-| POST | `/agent/confidence-score` | 404 | No |
-| POST | `/agent/resolve` | 404 | No |
-| GET | `/policy/health` | 404 | No |
-| GET | `/policy/rules` | 404 | No |
-| POST | `/policy/check-action` | 404 | No |
-| POST | `/policy/check-plan` | 404 | No |
-| POST | `/policy/check-model` | 404 | No |
-| POST | `/policy/rules` | 404 | No |
-| PATCH | `/policy/rules/{rule_id}` | 404 | No |
-| GET | `/execution/health` | 404 | No |
-| POST | `/execution/submit` | 404 | No |
+| Method | Path | HTTP | Sample |
+|--------|------|-----:|--------|
+| POST | `/agent/evaluate-incident` | 200 | `accepted`, score ~0.6, reasons + evidence |
+| POST | `/agent/evaluate-plan` | 200 | Deterministic pipeline |
+| POST | `/agent/evaluate-action` | 200 | Deterministic pipeline |
+| POST | `/agent/rank-recommendations` | 200 | `ranking_method: deterministic-risk` |
+| POST | `/agent/confidence-score` | 200 | e.g. `level: HIGH`, score 0.8 |
+| POST | `/agent/resolve` | 200 | Plan with `NOT_EXECUTED` — **not** exposed in UI (Phase 3) |
 
-**Dashboard implication:** Do **not** point `/control-plane-api` at `:8000` until the real Control Plane process is confirmed on the correct host/port. Ask the Epic 7/13/14 owners for the live listen address.
+#### Policy POSTs
+
+| Method | Path | HTTP | Sample / UI |
+|--------|------|-----:|-------------|
+| POST | `/policy/check-action` | 200 | `ALLOWED` / `REQUIRES_HUMAN_REVIEW` / `DENIED` — **Incident Control Plane tab** |
+| POST | `/policy/check-plan` | 200 | Deterministic |
+| POST | `/policy/check-model` | 200 | Fail-closed to human review when unmatched |
+| POST | `/policy/rules` | 200 | **Admin only — no browser UI** |
+| PATCH | `/policy/rules/{rule_id}` | 200 | **Admin only — no browser UI** |
+
+#### Execution
+
+| Method | Path | HTTP | Notes |
+|--------|------|-----:|-------|
+| POST | `/execution/submit` | 200 | `SAFE_SIMULATION` accepted — **not** exposed in public UI yet |
+
+### Dashboard integration status
+
+| Surface | Status |
+|---------|--------|
+| System Status health cards | Done (four Control Plane health GETs) |
+| `/ai-models`, `/prompt-catalog`, `/ai-audit`, `/policy-rules` | Done (read-only) |
+| Incident → **Control Plane** tab (evaluate / rank / confidence / check-action) | Done |
+| Policy rule create/patch | **Skipped** until auth exists |
+| AI complete/chat demos, agent resolve, execution submit | Deferred (Phase 3) |
+
+---
+
+## Historical note — wrong host `.19:8000` (2026-08-09)
+
+At first audit, `GET http://10.0.65.19:8000/` returned the **Attu** SPA (`<title>Attu</title>`). All Control Plane paths on that host returned **404**. That finding stands for **`.19` only**.
 
 ---
 
 ## Gaps vs handoff claims (consolidated)
 
-1. **Control Plane base URL is wrong on the network today** — `:8000` = Attu, not AI/Agent/Policy/Execution.  
+1. **Control Plane handoff host typo** — use `.40:8000`, not `.19:8000` (Attu).  
 2. **`GET /knowledge/health/dependencies`** — documented, **404**.  
 3. **`GET /learning/{id}/history`** — documented, **404**.  
 4. **`POST /usecases/{id}/incidents`** — documented, live **405** / OpenAPI GET-only.  
@@ -555,6 +568,7 @@ All control-plane paths therefore fail:
 7. **Feedback schema** — requires boolean `success` (handoff emphasized outcome/rating/comments).  
 8. **Upload** — multipart `file` required (not JSON).  
 9. **Evaluation summary** — missing partial/not-evaluable counts called out in Epic 11 handoff.
+10. **Policy admin mutations** — live but **intentionally not** in the dashboard UI (no auth boundary yet).
 
 ---
 
@@ -562,7 +576,7 @@ All control-plane paths therefore fail:
 
 ```bash
 INC=http://10.0.65.19:8088/incident-api
-CP=http://10.0.65.19:8000
+CP=http://10.0.65.40:8000
 
 # Part A health + samples
 curl -fsS $INC/health
@@ -570,11 +584,21 @@ curl -fsS "$INC/usecases/search?q=capacity" | python3 -m json.tool | head
 curl -fsS $INC/learning/stats | python3 -m json.tool | head
 curl -fsS $INC/evaluation | python3 -m json.tool
 
-# Part B (expect Attu / 404 today)
-curl -fsS $CP/ | head
-curl -sS $CP/ai/health
-curl -sS -X POST $CP/ai/complete -H 'Content-Type: application/json' \
-  -d '{"component_name":"planner","prompt_id":"incident_summary_v1","inputs":{}}'
+# Part B Control Plane (correct host) — catalog
+curl -fsS $CP/ai/health
+curl -fsS $CP/agent/health
+curl -fsS $CP/policy/health
+curl -fsS $CP/execution/health
+curl -fsS $CP/ai/models | python3 -m json.tool
+curl -fsS $CP/ai/prompts | python3 -m json.tool | head
+curl -fsS $CP/ai/logs | python3 -m json.tool | head
+curl -fsS $CP/policy/rules | python3 -m json.tool | head
+
+# Agent / policy probes (deterministic)
+curl -fsS -X POST $CP/agent/evaluate-incident -H 'Content-Type: application/json' \
+  -d '{"incident_id":"INC-001","title":"High CPU","description":"CPU exceeded 95%","severity":"high","tenant_id":"tdk","signals":[{"metric":"cpu_usage","value":97}]}'
+curl -fsS -X POST $CP/policy/check-action -H 'Content-Type: application/json' \
+  -d '{"component_name":"agent","tenant_id":"tdk","user_id":"operator-1","roles":["operator"],"resource":"node-01","action":"investigate","context":{"risk_level":"LOW","evidence_complete":true}}'
 ```
 
 VPN required.

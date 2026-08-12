@@ -55,9 +55,22 @@ export interface Recommendation {
 
 export interface IncidentSignal {
   signal_id?: string;
+  incident_id?: string;
   type?: string;
   severity?: string;
   status?: string;
+  confidence?: number;
+  title?: string;
+  description?: string;
+  event_code?: string;
+  observed_at?: string;
+  created_at?: string;
+  raw_data?: {
+    metric_name?: string;
+    metric_value?: number;
+    metric_unit?: string;
+    [key: string]: unknown;
+  };
   [key: string]: unknown;
 }
 

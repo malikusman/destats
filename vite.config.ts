@@ -18,6 +18,12 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/incident-api/, ''),
       },
+      '/control-plane-api': {
+        // TDK Control Plane (AI / Agent / Policy / Execution). Not .19:8000 (Attu).
+        target: process.env.CONTROL_PLANE_API_TARGET || 'http://10.0.65.40:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/control-plane-api/, ''),
+      },
     },
   },
 })

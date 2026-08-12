@@ -5,6 +5,7 @@ import {
   BrainCircuit,
   BookOpen,
   ClipboardCheck,
+  Cpu,
   Database,
   GraduationCap,
   HardDrive,
@@ -113,11 +114,43 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="mt-auto hidden space-y-0.5 px-2 pt-4 text-[11px] text-slate-400 md:block">
-        {identity.location && <div>{identity.location}</div>}
-        {identity.ontapVersion && <div className="font-mono">ONTAP {identity.ontapVersion}</div>}
-        {!identity.location && !identity.ontapVersion && nodes.isPending && <div>Loading…</div>}
+      <div className="mt-auto hidden space-y-1 px-2 pt-4 md:block">
+        <NavLink
+          to="/control-plane"
+          className={({ isActive }) =>
+            `inline-flex items-center gap-1.5 text-[11px] transition-colors ${
+              isActive
+                ? 'font-medium text-blue-700'
+                : 'text-slate-400 hover:text-slate-600'
+            }`
+          }
+        >
+          <Cpu className="h-3 w-3 shrink-0" aria-hidden />
+          Control Plane
+        </NavLink>
+        {identity.location && <div className="text-[11px] text-slate-400">{identity.location}</div>}
+        {identity.ontapVersion && (
+          <div className="font-mono text-[11px] text-slate-400">ONTAP {identity.ontapVersion}</div>
+        )}
+        {!identity.location && !identity.ontapVersion && nodes.isPending && (
+          <div className="text-[11px] text-slate-400">Loading…</div>
+        )}
       </div>
+
+      {/* Mobile: keep Control Plane reachable in the horizontal strip */}
+      <NavLink
+        to="/control-plane"
+        className={({ isActive }) =>
+          `inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors md:hidden ${
+            isActive
+              ? 'bg-blue-50 text-blue-700'
+              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+          }`
+        }
+      >
+        <Cpu className="h-4 w-4 shrink-0" aria-hidden />
+        Control Plane
+      </NavLink>
     </aside>
   );
 }

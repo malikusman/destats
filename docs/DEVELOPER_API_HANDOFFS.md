@@ -233,11 +233,13 @@ Source: *TDK Epics 7 / 13 / 14 APIs — Dashboard integration handoff* (7 August
 
 | Consumer | Base URL | Notes |
 |----------|----------|-------|
-| Developer / VPN client | `http://10.0.65.19:8000` | Use with curl, Postman, or server-side code. |
-| Interactive OpenAPI | `http://10.0.65.19:8000/docs` | Browse schemas and try requests while on VPN. |
-| OpenAPI JSON | `http://10.0.65.19:8000/openapi.json` | Useful for generated clients and dashboard typing. |
+| Developer / VPN client | `http://10.0.65.40:8000` | Use with curl, Postman, or server-side code. **Corrected 2026-08-10** (handoff previously listed `.19:8000` by mistake). |
+| Interactive OpenAPI | `http://10.0.65.40:8000/docs` | Browse schemas and try requests while on VPN. |
+| OpenAPI JSON | `http://10.0.65.40:8000/openapi.json` | Useful for generated clients and dashboard typing. |
 | Dashboard browser | `/control-plane-api/*` | Recommended proxy path; rewrite to port 8000. |
 | Container on same VM | `http://host.docker.internal:8000` | Used by Planner/Resolution with host-gateway mapping. |
+
+> **Note:** `http://10.0.65.19:8000` serves **Attu** (Milvus UI), not the Control Plane API. Do not use that host for AI/Agent/Policy/Execution.
 
 ### Critical warning
 
@@ -249,7 +251,7 @@ The API currently has **no CORS middleware**, so browser code should call it thr
 
 ```js
 '/control-plane-api': {
-  target: 'http://10.0.65.19:8000',
+  target: 'http://10.0.65.40:8000',
   changeOrigin: true,
   rewrite: (path) => path.replace(/^\/control-plane-api/, ''),
 }
@@ -932,7 +934,7 @@ Representative response:
 Documented from the handoff. **Not executed as part of this write-up.**
 
 ```bash
-BASE=http://10.0.65.19:8000
+BASE=http://10.0.65.40:8000
 
 curl -fsS $BASE/health
 curl -fsS $BASE/ai/health
@@ -963,8 +965,8 @@ This handoff doc does **not** replace existing destats references:
 
 ## Follow-ups (deferred)
 
-1. VPN live-test Control Plane `:8000` GETs and representative POSTs.  
+1. VPN live-test Control Plane on `http://10.0.65.40:8000` (confirmed healthy 2026-08-10).  
 2. Re-audit Incident Service enriched filters/pagination envelopes against Part A.  
-3. Decide whether destats adds `/control-plane-api` Vite + Nginx proxy and System Status cards for AI/Agent/Policy/Execution.
+3. Wire destats `/control-plane-api` Vite + Nginx proxy and System Status cards for AI/Agent/Policy/Execution.
 
 **Live verification (2026-08-09):** see [DEVELOPER_API_LIVE_AUDIT.md](DEVELOPER_API_LIVE_AUDIT.md).  

@@ -12,6 +12,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import {
+  useLearningDetail,
   useLearningFeedback,
   useLearningList,
   useLearningRankings,
@@ -75,6 +76,7 @@ export function Learning() {
   const list = useLearningList();
   const stats = useLearningStats();
   const rankings = useLearningRankings();
+  const detail = useLearningDetail(selectedId ?? undefined);
   const feedback = useLearningFeedback();
 
   const filtered = useMemo(() => {
@@ -93,10 +95,11 @@ export function Learning() {
     });
   }, [list.data, query, outcomeFilter, useCaseFilter]);
 
-  const selected =
+  const listSelected =
     filtered.find((r) => r.learning_id === selectedId) ??
     list.data?.find((r) => r.learning_id === selectedId) ??
     null;
+  const selected: LearningRecord | null = detail.data ?? listSelected;
 
   const statsEntries = useMemo(() => {
     const s = stats.data;
@@ -322,6 +325,9 @@ export function Learning() {
                   {selected.recommendation}
                 </h2>
               </div>
+              {detail.isFetching && !detail.data && (
+                <p className="text-xs text-slate-400">Loading details…</p>
+              )}
               <dl className="grid grid-cols-2 gap-3 text-xs">
                 <div>
                   <dt className="text-slate-400">Incident</dt>
@@ -360,6 +366,29 @@ export function Learning() {
                   </dd>
                 </div>
               </dl>
+
+              {(selected.action_taken || selected.result || selected.user_feedback) && (
+                <div className="space-y-2 border-t border-slate-100 pt-4 text-sm">
+                  {selected.action_taken && (
+                    <div>
+                      <p className="text-xs font-medium uppercase text-slate-400">Action taken</p>
+                      <p className="mt-0.5 text-slate-700">{selected.action_taken}</p>
+                    </div>
+                  )}
+                  {selected.result && (
+                    <div>
+                      <p className="text-xs font-medium uppercase text-slate-400">Result</p>
+                      <p className="mt-0.5 text-slate-700">{selected.result}</p>
+                    </div>
+                  )}
+                  {selected.user_feedback && (
+                    <div>
+                      <p className="text-xs font-medium uppercase text-slate-400">Feedback</p>
+                      <p className="mt-0.5 text-slate-700">{selected.user_feedback}</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="border-t border-slate-100 pt-4">
                 <p className="mb-2 text-xs font-medium text-slate-500">Did this recommendation work?</p>

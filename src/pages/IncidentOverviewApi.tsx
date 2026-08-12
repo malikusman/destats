@@ -1,14 +1,16 @@
+import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Clock, Link2, Package, Server } from 'lucide-react';
+import { Activity, Clock, Link2, Package, Server } from 'lucide-react';
 import { IncidentPlatformPanels } from '../components/IncidentPlatformPanels';
 import {
   useIncidentAssets,
   useIncidentDetail,
   useIncidentRecommendations,
+  useIncidentSignals,
   useIncidentTimeline,
   useRelatedIncidents,
 } from '../hooks/incident-service';
-import { formatTimestamp } from '../lib/format';
+import { formatRelative, formatTimestamp } from '../lib/format';
 import { SEVERITY_BG, severityTone, statusBadgeClass } from '../lib/incident-display';
 
 export function IncidentOverviewApi() {
@@ -18,6 +20,20 @@ export function IncidentOverviewApi() {
   const related = useRelatedIncidents(id);
   const recommendations = useIncidentRecommendations(id);
   const assets = useIncidentAssets(id);
+  const signals = useIncidentSignals();
+
+  const relatedSignals = useMemo(() => {
+    const all = signals.data ?? [];
+    if (!id) return [];
+    return all
+      .filter((s) => s.incident_id === id)
+      .sort((a, b) => {
+        const aTime = a.observed_at ?? a.created_at ?? '';
+        const bTime = b.observed_at ?? b.created_at ?? '';
+        return new Date(bTime).getTime() - new Date(aTime).getTime();
+      })
+      .slice(0, 5);
+  }, [signals.data, id]);
 
   const isLoading = detail.isLoading || timeline.isLoading;
 
@@ -64,6 +80,67 @@ export function IncidentOverviewApi() {
           ))}
         </div>
         <p className="mt-2 font-mono text-[11px] text-slate-400">{incident.correlation_key}</p>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
+          <Activity className="h-4 w-4 text-slate-400" />
+          Contributing signals
+          {relatedSignals.length > 0 && (
+            <span className="font-normal text-slate-400">({relatedSignals.length})</span>
+          )}
+        </div>
+        {signals.isLoading ? (
+          <p className="text-sm text-slate-400">Loading signals…</p>
+        ) : signals.isError ? (
+          <p className="text-sm text-amber-700">Signal feed is temporarily unavailable.</p>
+        ) : relatedSignals.length === 0 ? (
+          <p className="text-sm text-slate-400">No signals linked to this incident.</p>
+        ) : (
+          <ul className="space-y-2">
+            {relatedSignals.map((signal, index) => {
+              const tone = severityTone(signal.severity ?? 'info');
+              const when = signal.observed_at ?? signal.created_at;
+              const metric = signal.raw_data?.metric_name;
+              const metricValue = signal.raw_data?.metric_value;
+              return (
+                <li
+                  key={signal.signal_id ?? `${index}`}
+                  className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 ring-inset capitalize ${SEVERITY_BG[tone]}`}
+                    >
+                      {signal.severity ?? 'unknown'}
+                    </span>
+                    {signal.confidence != null && (
+                      <span className="font-mono text-[10px] text-slate-400">
+                        {(signal.confidence * 100).toFixed(0)}% conf
+                      </span>
+                    )}
+                    {when && (
+                      <span className="ml-auto text-[11px] text-slate-400">
+                        {formatRelative(when)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-sm font-medium text-slate-800">
+                    {signal.title || signal.event_code || 'Signal'}
+                  </p>
+                  {metric != null && (
+                    <p className="mt-0.5 font-mono text-[11px] text-slate-500">
+                      {metric}
+                      {metricValue != null
+                        ? `: ${metricValue}${signal.raw_data?.metric_unit ?? ''}`
+                        : ''}
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">

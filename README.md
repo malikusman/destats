@@ -36,8 +36,9 @@ Browser (VPN)
    ▼
 Nginx in destats-web container
    ├── /              → React SPA
-   ├── /api-proxy/    → API_TARGET        (ingestion, default 10.0.65.40:8080)
-   └── /incident-api/ → INCIDENT_API_TARGET (platform incidents)
+   ├── /api-proxy/          → API_TARGET               (ingestion, default 10.0.65.40:8080)
+   ├── /incident-api/       → INCIDENT_API_TARGET      (platform incidents)
+   └── /control-plane-api/  → CONTROL_PLANE_API_TARGET (AI/Agent/Policy/Execution, default 10.0.65.40:8000)
 ```
 
 The browser never calls upstream hosts directly (CORS / same-origin).
@@ -55,7 +56,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`. Vite proxies `/api-proxy` and `/incident-api`.
+Open `http://localhost:5173`. Vite proxies `/api-proxy`, `/incident-api`, and `/control-plane-api`.
 
 ### Local Docker
 
@@ -89,8 +90,10 @@ See [`.env.example`](.env.example).
 |----------|---------|--------|
 | `API_TARGET` | `http://10.0.65.40:8080` | Ingestion upstream for Nginx |
 | `INCIDENT_API_TARGET` | see compose | Platform upstream for Nginx — use `:8003` on the TDK host |
+| `CONTROL_PLANE_API_TARGET` | `http://10.0.65.40:8000` | Control Plane upstream (not `.19:8000` / Attu) |
 | `VITE_API_BASE_URL` | `/api-proxy` | Browser path (Vite) |
 | `VITE_INCIDENT_API_BASE_URL` | `/incident-api` | Browser path (Vite) |
+| `VITE_CONTROL_PLANE_API_BASE_URL` | `/control-plane-api` | Browser path (Vite) |
 | `VITE_USE_MOCK_INCIDENTS=1` | off | Enables demo `INC-*` + mock AI tabs (offline only) |
 | `VITE_USE_MOCK_KNOWLEDGE=1` | off | Forces mock knowledge instead of live retrieve |
 
@@ -136,6 +139,8 @@ docker compose -p destats up --build -d
 
 curl -s http://localhost:8088/api-proxy/health
 curl -s http://localhost:8088/incident-api/health
+curl -s http://localhost:8088/control-plane-api/ai/health
+curl -s http://localhost:8088/control-plane-api/execution/health
 ```
 
 Viewers need VPN (or internal network) to open `http://10.0.65.19:8088`.
