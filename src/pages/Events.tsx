@@ -9,28 +9,13 @@ import { SeverityBadge } from '../components/SeverityBadge';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import { ErrorState } from '../components/ErrorState';
 import { formatNumber, formatRelative, formatTimestamp } from '../lib/format';
+import { isHiddenByDefault } from '../lib/ems-noise';
 import { SEVERITY_ORDER } from '../lib/status';
 import type { EmsEvent } from '../types/netapp';
 
 type Mode = 'all' | 'errors';
 
 const ACTIONABLE_SEVERITIES = ['emergency', 'alert', 'error'] as const;
-
-/** Khai / TDK operational noise — hide by default so actionable events surface first. */
-const NOISE_PATTERNS: RegExp[] = [
-  /failed\s+login/i,
-  /authentication\s+fail/i,
-  /login\s+fail/i,
-  /snapshot\s+policy\s+drift/i,
-  /policy\s+drift/i,
-  /peer\s+address\s+mismatch/i,
-  /address\s+mismatch/i,
-];
-
-function isOperationalNoise(event: EmsEvent): boolean {
-  const haystack = `${event.log_message ?? ''} ${event.message?.name ?? ''} ${event.source ?? ''}`;
-  return NOISE_PATTERNS.some((re) => re.test(haystack));
-}
 
 function eventKey(event: EmsEvent): string {
   return `${event.node?.name ?? 'node'}-${event.index}-${event.time}`;
@@ -217,14 +202,14 @@ export function Events() {
   }, [events]);
 
   const noiseHiddenCount = useMemo(
-    () => (hideNoise ? events.filter(isOperationalNoise).length : 0),
+    () => (hideNoise ? events.filter(isHiddenByDefault).length : 0),
     [events, hideNoise],
   );
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     return events.filter((event) => {
-      if (hideNoise && isOperationalNoise(event)) return false;
+      if (hideNoise && isHiddenByDefault(event)) return false;
       if (severityFilter.size > 0) {
         const severity = (event.message?.severity ?? '').toLowerCase();
         if (!severityFilter.has(severity)) return false;
@@ -409,7 +394,7 @@ export function Events() {
               <span>
                 Hide operational noise
                 <span className="ml-1 text-slate-400">
-                  (failed logins, snapshot policy drift, peer address mismatch)
+                  (TDK event types, failed logins, snapshot drift, peer mismatch)
                 </span>
               </span>
             </label>

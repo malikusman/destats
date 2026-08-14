@@ -29,7 +29,8 @@ import { ErrorState } from '../components/ErrorState';
 import { EmptyState } from '../components/EmptyState';
 import { ClusterActivityCard } from '../components/ClusterActivityCard';
 import { formatNumber, formatPercent, formatRelative, formatTiB, formatTimestamp } from '../lib/format';
-import { capacityTone, severityChartColor, SEVERITY_ORDER, stateTone } from '../lib/status';
+import { DONUT_SEVERITIES, isHiddenByDefault } from '../lib/ems-noise';
+import { capacityTone, severityChartColor, stateTone } from '../lib/status';
 import type { StatusTone } from '../lib/status';
 
 function sumCounts(counts: Record<string, number> | undefined): number {
@@ -132,13 +133,16 @@ export function Overview() {
 
   const severityDonut = useMemo(() => {
     const counts = ems.data?.severity_counts ?? {};
-    const ordered = [...SEVERITY_ORDER.filter((s) => s in counts), ...Object.keys(counts).filter((s) => !SEVERITY_ORDER.includes(s as (typeof SEVERITY_ORDER)[number]))];
-    return ordered
-      .map((name) => ({ name, value: counts[name] ?? 0, color: severityChartColor[name] ?? '#cbd5e1' }))
-      .filter((entry) => entry.value > 0);
+    return DONUT_SEVERITIES.filter((name) => (counts[name] ?? 0) > 0).map((name) => ({
+      name,
+      value: counts[name] ?? 0,
+      color: severityChartColor[name] ?? '#cbd5e1',
+    }));
   }, [ems.data]);
 
-  const recentErrors = (emsErrors.data?.events ?? []).slice(0, 5);
+  const recentErrors = (emsErrors.data?.events ?? [])
+    .filter((event) => !isHiddenByDefault(event))
+    .slice(0, 5);
 
   return (
     <div className="space-y-4">
@@ -335,7 +339,11 @@ export function Overview() {
         {/* EMS severity donut */}
         <ChartCard
           title="EMS Severity"
-          subtitle={ems.data ? `Last ${formatNumber(ems.data.events_examined)} events` : undefined}
+          subtitle={
+            ems.data
+              ? `Emergency, alert, error, and warning in last ${formatNumber(ems.data.events_examined)} events`
+              : undefined
+          }
         >
           {ems.isPending ? (
             <LoadingSkeleton rows={5} />
