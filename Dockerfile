@@ -8,11 +8,14 @@ RUN npm run build
 
 # Stage 2: serve via Nginx (static files + /api-proxy reverse proxy)
 FROM nginx:alpine
+RUN apk add --no-cache openssl
 COPY --from=build /app/dist /usr/share/nginx/html
 # The official image runs envsubst on *.template files in this directory at
 # container start, producing /etc/nginx/conf.d/default.conf with ${API_TARGET}.
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY docker/40-ensure-tls.sh /docker-entrypoint.d/40-ensure-tls.sh
+RUN chmod +x /docker-entrypoint.d/40-ensure-tls.sh
 ENV API_TARGET=http://10.0.65.40:8080
 ENV INCIDENT_API_TARGET=http://mock-api:3090
 ENV CONTROL_PLANE_API_TARGET=http://10.0.65.40:8000
-EXPOSE 80
+EXPOSE 80 443
