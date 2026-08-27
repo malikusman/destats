@@ -9,20 +9,25 @@ import { SeverityBadge } from '../components/SeverityBadge';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import { ErrorState } from '../components/ErrorState';
 import { formatNumber, formatRelative, formatTimestamp } from '../lib/format';
-import { isHiddenByDefault } from '../lib/ems-noise';
+import { isHiddenByDefault, isHiddenSeverity } from '../lib/ems-noise';
 import { SEVERITY_ORDER } from '../lib/status';
 import type { EmsEvent } from '../types/netapp';
 
 type Mode = 'all' | 'errors';
 
 const ACTIONABLE_SEVERITIES = ['emergency', 'alert', 'error'] as const;
+/** Severities operators can filter to (info/notice/debug are never shown). */
+const FILTERABLE_SEVERITIES = ['emergency', 'alert', 'error', 'warning'] as const;
 
 function eventKey(event: EmsEvent): string {
   return `${event.node?.name ?? 'node'}-${event.index}-${event.time}`;
 }
 
 function parseSeveritySet(param: string | null): Set<string> {
-  return new Set(param ? param.split(',').filter(Boolean) : []);
+  const allowed = new Set<string>(FILTERABLE_SEVERITIES);
+  return new Set(
+    (param ? param.split(',').filter(Boolean) : []).filter((severity) => allowed.has(severity)),
+  );
 }
 
 function setsEqual(a: Set<string>, b: readonly string[]): boolean {
@@ -73,17 +78,10 @@ export function Events() {
   const mode: Mode = useMemo(() => {
     if (explicitMode === 'all') return 'all';
     if (explicitMode === 'errors') return 'errors';
-    if (severityParam) {
-      const onlyActionable =
-        severityFilter.size > 0 &&
-        Array.from(severityFilter).every((severity) =>
-          (ACTIONABLE_SEVERITIES as readonly string[]).includes(severity),
-        );
-      // Drill-down to notice/debug/informational needs the full event stream.
-      if (severityFilter.size > 0 && !onlyActionable) return 'all';
-    }
+    // Warning filter needs the full stream (errors feed is emergency/alert/error only).
+    if (severityFilter.has('warning')) return 'all';
     return 'errors';
-  }, [explicitMode, severityParam, severityFilter]);
+  }, [explicitMode, severityFilter]);
 
   const hideNoise = searchParams.get('noise') !== '1';
   const search = searchParams.get('q') ?? '';
@@ -181,7 +179,29 @@ export function Events() {
     return result;
   }, [useErrorsFeed, allEvents.data, errorEvents.data]);
 
-  const severityCounts = emsSummary.data?.severity_counts ?? {};
+  /** KPI cards use the errors feed with the same noise/severity rules as the Errors list. */
+  const kpiEvents = useMemo(() => {
+    const records = errorEvents.data?.events ?? [];
+    return records.filter((event) => {
+      if (isHiddenSeverity(event)) return false;
+      if (hideNoise && isHiddenByDefault(event)) return false;
+      return true;
+    });
+  }, [errorEvents.data, hideNoise]);
+
+  const severityCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      emergency: 0,
+      alert: 0,
+      error: 0,
+    };
+    for (const event of kpiEvents) {
+      const severity = (event.message?.severity ?? '').toLowerCase();
+      if (severity in counts) counts[severity] += 1;
+    }
+    return counts;
+  }, [kpiEvents]);
+
   const summaryActionable =
     (severityCounts.emergency ?? 0) + (severityCounts.alert ?? 0) + (severityCounts.error ?? 0);
 
@@ -202,13 +222,22 @@ export function Events() {
   }, [events]);
 
   const noiseHiddenCount = useMemo(
-    () => (hideNoise ? events.filter(isHiddenByDefault).length : 0),
+    () =>
+      hideNoise
+        ? events.filter((event) => !isHiddenSeverity(event) && isHiddenByDefault(event)).length
+        : 0,
     [events, hideNoise],
+  );
+
+  const lowSeverityHiddenCount = useMemo(
+    () => events.filter(isHiddenSeverity).length,
+    [events],
   );
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     return events.filter((event) => {
+      if (isHiddenSeverity(event)) return false;
       if (hideNoise && isHiddenByDefault(event)) return false;
       if (severityFilter.size > 0) {
         const severity = (event.message?.severity ?? '').toLowerCase();
@@ -233,7 +262,10 @@ export function Events() {
       ? severityFilter.size > 0 && summaryFilteredTotal > 0
         ? `${formatNumber(filtered.length)} of ${formatNumber(summaryFilteredTotal)} matching in last ${formatNumber(eventsExamined)} events`
         : `${formatNumber(filtered.length)} emergency, alert, and error events in last ${formatNumber(eventsExamined)} events`
-      : `Operational event stream. ${formatNumber(filtered.length)} of ${formatNumber(events.length)} loaded events shown`,
+      : `Warnings and actionable events. ${formatNumber(filtered.length)} of ${formatNumber(events.length)} loaded events shown`,
+    lowSeverityHiddenCount > 0
+      ? `${formatNumber(lowSeverityHiddenCount)} low-severity hidden`
+      : null,
     noiseHiddenCount > 0 ? `${formatNumber(noiseHiddenCount)} noise hidden` : null,
   ].filter(Boolean);
 
@@ -294,7 +326,8 @@ export function Events() {
       <div>
         <h1 className="text-xl font-bold text-slate-900">Events (EMS)</h1>
         <p className="mt-0.5 text-sm text-slate-500">
-          Actionable EMS events (errors, alerts, emergencies) by default. Switch to all events for the full stream.
+          Actionable EMS events (errors, alerts, emergencies) by default. Switch to all events for
+          warnings plus actionable severities (informational, notice, and debug are hidden).
         </p>
       </div>
 
@@ -336,6 +369,10 @@ export function Events() {
           valueClass="text-slate-900"
         />
       </div>
+      <p className="-mt-2 text-xs text-slate-400">
+        KPI counts match the Errors feed in the last {formatNumber(eventsExamined)} events
+        {hideNoise ? ' after hiding operational noise' : ''}.
+      </p>
 
       <ChartCard
         title="EMS Event Log"
@@ -431,7 +468,7 @@ export function Events() {
                 ))}
               </select>
               <div className="flex flex-wrap gap-1" role="group" aria-label="Filter by severity">
-                {SEVERITY_ORDER.map((severity) => {
+                {FILTERABLE_SEVERITIES.map((severity) => {
                   const active = severityFilter.has(severity);
                   return (
                     <button

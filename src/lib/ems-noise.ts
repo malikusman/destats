@@ -41,5 +41,13 @@ export function isHiddenByDefault(event: EmsEvent): boolean {
   return NOISE_PATTERNS.some((re) => re.test(haystack));
 }
 
+/** Severities TDK asked not to monitor (Khai). */
+export const HIDDEN_SEVERITIES = ['informational', 'notice', 'debug'] as const;
+
+export function isHiddenSeverity(event: EmsEvent): boolean {
+  const severity = (event.message?.severity ?? '').toLowerCase();
+  return (HIDDEN_SEVERITIES as readonly string[]).includes(severity);
+}
+
 /** Overview donut: skip informational/notice so they do not dominate the chart. */
 export const DONUT_SEVERITIES = ['emergency', 'alert', 'error', 'warning'] as const;
