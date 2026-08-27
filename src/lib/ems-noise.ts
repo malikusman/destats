@@ -1,10 +1,18 @@
 import type { EmsEvent } from '../types/netapp';
 
-/** Event names TDK asked to hide by default (Khai, Aug 2026). */
+/** Event names TDK asked to hide by default (Khai master noise list, Aug 2026). */
 export const TDK_HIDDEN_EVENT_NAMES = [
   'netif.tcp.conn.bad.checksum',
   'Nblade.cifsMaxWatchesPerTree',
   'Nblade.nfsConnResetAndClose',
+  'Nblade.cifsShrConnectFailed',
+  'Nblade.dBladeNoResponse.NFS',
+  'smc.snapmir.schd.trans.overrun',
+  'smc.snapmir.update.fail',
+  'secd.authsys.lookup.failed',
+  'secd.cifsAuth.problem',
+  'sis.chkpoint.restore.failed',
+  'sshd.loginGraceTime.expired',
   'configbr.noDestURL',
   'callhome.pool.aggr.noncomp',
   'license.cappool.aggr.noncomp',
